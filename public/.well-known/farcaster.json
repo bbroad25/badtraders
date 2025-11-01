@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "name": "Bad Traders",
+  "description": "Leaderboard of crypto’s worst-performing traders. Built by bbroad25.",
+  "homeUrl": "https://badtraders.vercel.app",
+  "iconUrl": "https://badtraders.vercel.app/icon.png",
+  "splashImageUrl": "https://badtraders.vercel.app/splash.png",
+  "splashBackgroundColor": "#6f42c1"
+}
