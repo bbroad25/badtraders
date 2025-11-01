@@ -1,20 +1,8 @@
-import type { Metadata } from "next"
+"use client"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-
-// ----------
-//  METADATA
-// ----------
-export const metadata: Metadata = {
-  title: "$BADTRADERS",
-  description: "A leaderboard of crypto’s worst-performing traders. Don’t be that guy.",
-  openGraph: {
-    title: "$BADTRADERS",
-    description: "A leaderboard of crypto’s worst-performing traders. Don’t be that guy.",
-    // Add other Open Graph tags as needed
-  },
-}
 
 // ----------
 //  COMPONENT
@@ -87,7 +75,7 @@ export default function BadTradersLanding() {
             <div className="pt-8">
               <Button
                 size="lg"
-                className="bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground text-xl px-12 py-8 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgb[...]
+                className="bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground text-xl px-12 py-8 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
               >
                 {"WE'RE NGMI 😭"}
               </Button>
@@ -153,7 +141,7 @@ export default function BadTradersLanding() {
 
                 <Button
                   onClick={copyToClipboard}
-                  className="w-full bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground text-xl py-8 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_[...]
+                  className="w-full bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground text-xl py-8 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 >
                   {copied ? "✓ COPIED (BAD DECISION)" : "COPY CONTRACT 😂"}
                 </Button>
