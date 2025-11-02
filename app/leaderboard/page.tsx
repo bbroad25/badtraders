@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
+import { Button } from '@/components/ui/button';
 import Header from '@/components/leaderboard/Header';
 import ErrorMessage from '@/components/leaderboard/ErrorMessage';
 import Leaderboard from '@/components/leaderboard/Leaderboard';
@@ -42,16 +43,48 @@ export default function LeaderboardPage() {
       }
 
       const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch balance');
+      if (!response.ok) {
+        // API failed - use client-side contract query instead
+        if (address) {
+          console.warn('API failed, using client-side contract query');
+          try {
+            const { ethers } = await import('ethers');
+            // Use JsonRpcProvider for direct contract queries (doesn't need wallet connection)
+            const provider = new ethers.JsonRpcProvider('https://eth.llamarpc.com');
+            const tokenAddress = '0x0774409Cda69A47f272907fd5D0d80173167BB07';
+            const tokenAbi = [
+              'function balanceOf(address owner) view returns (uint256)',
+              'function decimals() view returns (uint8)'
+            ];
+            const tokenContract = new ethers.Contract(tokenAddress, tokenAbi, provider);
+            const balance = await tokenContract.balanceOf(address);
+            const decimals = await tokenContract.decimals().catch(() => 18);
+            const balanceFormatted = parseFloat(ethers.formatUnits(balance, decimals));
+            setUserBalance(balanceFormatted);
+            setIsEligible(balanceFormatted >= ELIGIBILITY_THRESHOLD);
+            return;
+          } catch (fallbackErr) {
+            console.warn('Client-side contract query failed:', fallbackErr);
+            // Gracefully continue with zero balance
+          }
+        }
+        // No address available - set to zero gracefully
+        setUserBalance(0);
+        setIsEligible(false);
+        return;
+      }
       const data = await response.json();
-      setUserBalance(data.balance || 0);
-      setIsEligible(data.isEligible || false);
+      const balance = data.balance || 0;
+      setUserBalance(balance);
+      // Calculate eligibility client-side (just balance >= threshold)
+      setIsEligible(balance >= ELIGIBILITY_THRESHOLD);
       // Update wallet address from response if provided
       if (data.address && !walletAddress) {
         setWalletAddress(data.address);
       }
     } catch (err) {
-      console.error('Error loading token balance:', err);
+      // Graceful error handling - don't throw, just log and set defaults
+      console.warn('Error loading token balance (gracefully handled):', err);
       setUserBalance(0);
       setIsEligible(false);
     } finally {
@@ -71,21 +104,25 @@ export default function LeaderboardPage() {
           const fid = context.user.fid;
           setUserFid(fid);
 
-          // Use FID to fetch token balance via Neynar API
-          await loadTokenBalance(fid);
-
-          // Also try to get wallet address from Ethereum provider if available (for display)
+          // Get wallet address first - we need it for client-side contract queries
           const ethProvider = await sdk.wallet.getEthereumProvider();
           if (ethProvider) {
             try {
               const accounts = await ethProvider.request({ method: 'eth_accounts' });
               if (accounts && accounts[0]) {
-                setWalletAddress(accounts[0]);
+                const address = accounts[0];
+                setWalletAddress(address);
+                // Try API with FID first, but pass address for client-side fallback
+                await loadTokenBalance(fid, address);
+                return;
               }
             } catch (e) {
               console.log('Could not get wallet address:', e);
             }
           }
+
+          // No address yet - try API with just FID (API may return address from Neynar)
+          await loadTokenBalance(fid, null);
         }
       } catch (err) {
         // Not in Farcaster client or context not available - that's okay

@@ -22,18 +22,20 @@ export async function GET(request: NextRequest) {
 
       const neynarApiKey = process.env.NEYNAR_API_KEY;
       if (!neynarApiKey) {
-        // Fallback to address if no Neynar API key
-        if (!addressParam) {
-          return NextResponse.json(
-            { error: 'NEYNAR_API_KEY not configured and no address provided' },
-            { status: 500 }
-          );
-        }
+        // No Neynar API key - gracefully return zero balance instead of error
+        console.warn('NEYNAR_API_KEY not configured, returning zero balance for FID:', fid);
+        return NextResponse.json({
+          fid,
+          address: null,
+          balance: 0,
+          isEligible: false,
+          threshold: ELIGIBILITY_THRESHOLD,
+        });
       } else {
         try {
           // Call Neynar API to get token balances by FID
           const response = await fetch(
-            `https://api.neynar.com/v2/farcaster/user/balance/?fid=${fid}&networks=ethereum`,
+            `https://api.neynar.com/v2/farcaster/user/balances?fid=${fid}&networks=ethereum`,
             {
               headers: {
                 'Authorization': `Bearer ${neynarApiKey}`,
@@ -43,17 +45,23 @@ export async function GET(request: NextRequest) {
           );
 
           if (!response.ok) {
-            throw new Error(`Neynar API error: ${response.status}`);
+            const errorText = await response.text().catch(() => 'Unknown error');
+            console.error('Neynar API error response:', response.status, errorText);
+            throw new Error(`Neynar API error: ${response.status} - ${errorText.substring(0, 200)}`);
           }
 
           const data = await response.json();
+          console.log('Neynar API response:', JSON.stringify(data, null, 2));
 
           // Parse Neynar response to find BadTraders token balance
           let balance = 0;
           let walletAddress: string | null = null;
 
-          if (data?.user_balance?.address_balances) {
-            for (const addressBalance of data.user_balance.address_balances) {
+          // Check response structure - could be user_balance or result key
+          const userBalance = data?.user_balance || data?.result?.user_balance || data;
+
+          if (userBalance?.address_balances) {
+            for (const addressBalance of userBalance.address_balances) {
               if (addressBalance.token_balances) {
                 for (const tokenBalance of addressBalance.token_balances) {
                   if (tokenBalance.token?.address?.toLowerCase() === BADTRADERS_TOKEN_ADDRESS.toLowerCase()) {
@@ -68,25 +76,38 @@ export async function GET(request: NextRequest) {
             }
           }
 
+          // Note: Eligibility can be calculated client-side (balance >= threshold)
+          // We still return it for convenience, but client should calculate it too
           const isEligible = balance >= ELIGIBILITY_THRESHOLD;
 
           return NextResponse.json({
             fid,
             address: walletAddress,
             balance,
-            isEligible,
+            isEligible, // Optional - client can calculate this from balance
             threshold: ELIGIBILITY_THRESHOLD,
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error fetching balance from Neynar:', error);
+          console.error('Error details:', {
+            message: error?.message,
+            stack: error?.stack,
+            fid
+          });
           // Fallback to address-based lookup if Neynar fails
           if (addressParam) {
             // Continue to address-based logic below
+            console.warn('Neynar API failed, falling back to address-based lookup');
           } else {
-            return NextResponse.json(
-              { error: 'Failed to fetch token balance from Neynar' },
-              { status: 500 }
-            );
+            // No address for fallback - gracefully return zero balance instead of error
+            console.warn('Neynar API failed and no address provided, returning zero balance for FID:', fid);
+            return NextResponse.json({
+              fid,
+              address: null,
+              balance: 0,
+              isEligible: false,
+              threshold: ELIGIBILITY_THRESHOLD,
+            });
           }
         }
       }
@@ -103,12 +124,14 @@ export async function GET(request: NextRequest) {
       }
 
       const balance = await getBadTradersBalance(addressParam);
-      const isEligible = await checkEligibility(addressParam, ELIGIBILITY_THRESHOLD);
+      // Note: Eligibility can be calculated client-side (balance >= threshold)
+      // We still return it for convenience, but client should calculate it too
+      const isEligible = balance >= ELIGIBILITY_THRESHOLD;
 
       return NextResponse.json({
         address: addressParam,
         balance,
-        isEligible,
+        isEligible, // Optional - client can calculate this from balance
         threshold: ELIGIBILITY_THRESHOLD,
       });
     }
