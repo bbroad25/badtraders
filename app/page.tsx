@@ -10,39 +10,30 @@ export default function BadTradersLanding() {
 
   // --- Initialize Farcaster SDK with retries ---
   useEffect(() => {
-    const initFarcasterSDK = async () => {
-      if (typeof window === "undefined") return;
+    if (typeof window === "undefined") return
 
-      const timeout = setTimeout(() => {
-        console.warn("[MiniApp] SDK load timeout – continuing without frame.sdk");
-      }, 5000);
-
-      try {
-        let attempts = 0;
-        while (!window.frame?.sdk && attempts < 50) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-          attempts++;
-        }
-
-        if (window.frame?.sdk) {
-          console.log("[MiniApp] frame.sdk found – initializing ready()");
-          await window.frame.sdk.actions.ready();
-          console.log("[MiniApp] Farcaster Frame SDK ready");
-
-          const context = await window.frame.sdk.context;
-          console.log("[MiniApp] SDK context:", context);
-        } else {
-          console.warn("[MiniApp] frame.sdk not available after waiting");
-        }
-      } catch (err) {
-        console.error("[MiniApp] Error during sdk.actions.ready():", err);
-      } finally {
-        clearTimeout(timeout);
+    const waitForFrameSDK = async () => {
+      let attempts = 0
+      while (!window.frame?.sdk && attempts < 50) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        attempts++
       }
-    };
+      if (window.frame?.sdk) {
+        try {
+          await window.frame.sdk.actions.ready()
+          console.log("Farcaster Frame SDK ready!")
+          const context = await window.frame.sdk.context
+          console.log("SDK context:", context)
+        } catch (err) {
+          console.error("Error calling ready():", err)
+        }
+      } else {
+        console.warn("Farcaster Frame SDK not available after 5s")
+      }
+    }
 
-    initFarcasterSDK();
-  }, []);
+    waitForFrameSDK()
+  }, [])
 
   // --- Clipboard Copy ---
   const copyToClipboard = () => {
