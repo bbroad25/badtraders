@@ -7,7 +7,7 @@ const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
 
 // Create provider only if API key exists, otherwise return empty results
 const provider = ALCHEMY_API_KEY
-  ? new ethers.AlchemyProvider('mainnet', ALCHEMY_API_KEY)
+  ? new ethers.AlchemyProvider('base-mainnet', ALCHEMY_API_KEY)
   : null;
 const ELIGIBILITY_THRESHOLD = ethers.parseUnits("1000000", 18); // 1M tokens with 18 decimals
 
@@ -23,7 +23,7 @@ export async function getEligibleWallets(): Promise<string[]> {
   }
 
   try {
-    const response = await fetch(`https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`, {
+    const response = await fetch(`https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -166,7 +166,7 @@ async function getLossFromMoralis(address: string, apiKey: string): Promise<numb
     // Moralis provides wallet analytics - this is a simplified implementation
     // Adjust based on actual Moralis API endpoints
     const response = await fetch(
-      `https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=eth&limit=100`,
+      `https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=base&limit=100`,
       {
         headers: {
           'X-API-Key': apiKey,
@@ -213,7 +213,7 @@ async function getLossFrom0x(address: string, apiKey?: string): Promise<number> 
     // For BadTraders token specifically, we'll focus on swaps involving that token
     const BADTRADERS_TOKEN = '0x0774409Cda69A47f272907fd5D0d80173167BB07';
     const ETH_ADDRESS = '0x0000000000000000000000000000000000000000';
-    const WETH_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
+    // Using WETH from constants (Base mainnet)
 
     // Get token balance changes and approximate losses from swaps
     // This is a simplified implementation - full version would track each swap

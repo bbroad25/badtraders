@@ -1,8 +1,8 @@
 // The address of the $BadTrader token contract.
 export const BADTRADER_TOKEN_ADDRESS = '0x0774409cda69a47f272907fd5d0d80173167bb07';
 
-// The address for WETH on Ethereum Mainnet
-export const WETH_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
+// The address for WETH on Base Mainnet
+export const WETH_ADDRESS = '0x4200000000000000000000000000000000000006';
 
 // Uniswap V3 Universal Router
 export const UNISWAP_UNIVERSAL_ROUTER_ADDRESS = '0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD';

@@ -35,7 +35,7 @@ export async function getBadTradersBalance(walletAddress: string): Promise<numbe
   }
 
   try {
-    const provider = new ethers.AlchemyProvider('mainnet', ALCHEMY_API_KEY);
+    const provider = new ethers.AlchemyProvider('base-mainnet', ALCHEMY_API_KEY);
     const contract = new ethers.Contract(BADTRADERS_CONTRACT_ADDRESS, ERC20_ABI, provider);
 
     // Get balance in wei
