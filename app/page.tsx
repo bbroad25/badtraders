@@ -9,43 +9,37 @@ export default function BadTradersLanding() {
   const [sdkReady, setSdkReady] = useState(false)
   const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
-  // --- Initialize Farcaster SDK ---
+  // --- Initialize Farcaster SDK (if inside Frame) ---
   useEffect(() => {
     if (typeof window === "undefined") return
 
-    let attempts = 0
-    const maxAttempts = 50
-    const interval = 100
-
-    const timer = setInterval(async () => {
-      attempts++
-      if (window.frame?.sdk) {
-        clearInterval(timer)
-        try {
-          console.log("[MiniApp] Calling sdk.actions.ready()")
-          await window.frame.sdk.actions.ready()
+    // Only try if frame.sdk exists
+    if (window.frame?.sdk) {
+      window.frame.sdk.actions
+        .ready()
+        .then(() => {
           console.log("[MiniApp] SDK ready!")
-        } catch (err) {
-          console.error("[MiniApp] Error calling ready():", err)
-        }
-        setSdkReady(true)
-      } else if (attempts >= maxAttempts) {
-        clearInterval(timer)
-        console.warn("[MiniApp] frame.sdk not found after polling")
-        setSdkReady(true) // fallback to render anyway
-      }
-    }, interval)
+          setSdkReady(true)
+        })
+        .catch((err) => {
+          console.error("[MiniApp] SDK ready() error:", err)
+          setSdkReady(true) // fallback anyway
+        })
+    } else {
+      // Not inside a mini app; just render
+      setSdkReady(true)
+    }
   }, [])
 
-  // --- Clipboard Copy ---
+  // --- Clipboard copy ---
   const copyToClipboard = () => {
     navigator.clipboard.writeText(contractAddress)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // --- Show fallback until SDK is ready (only inside Frame) ---
-  if (typeof window !== "undefined" && window.frame?.sdk && !sdkReady) {
+  // --- Loading fallback while SDK initializes in Frame ---
+  if (!sdkReady) {
     return (
       <div className="min-h-screen flex items-center justify-center text-6xl">
         😂
@@ -53,7 +47,7 @@ export default function BadTradersLanding() {
     )
   }
 
-  // --- Main UI ---
+  // --- Main page content ---
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Floating emojis */}
@@ -100,9 +94,7 @@ export default function BadTradersLanding() {
         {/* Manifesto Section */}
         <section className="min-h-screen flex items-center justify-center px-4 py-20 border-b-4 border-primary">
           <div className="max-w-4xl w-full space-y-12">
-            <h2 className="text-5xl md:text-7xl font-bold text-primary uppercase text-center">
-              THE MANIFESTO 😂
-            </h2>
+            <h2 className="text-5xl md:text-7xl font-bold text-primary uppercase text-center">THE MANIFESTO 😂</h2>
 
             <div className="grid gap-6">
               <Card className="bg-card border-4 border-primary p-8 shadow-[12px_12px_0px_0px_rgba(147,51,234,1)]">
@@ -135,15 +127,11 @@ export default function BadTradersLanding() {
         {/* Contract Section */}
         <section className="min-h-screen flex items-center justify-center px-4 py-20">
           <div className="max-w-3xl w-full space-y-12">
-            <h2 className="text-5xl md:text-7xl font-bold text-primary uppercase text-center">
-              CONTRACT ADDRESS
-            </h2>
+            <h2 className="text-5xl md:text-7xl font-bold text-primary uppercase text-center">CONTRACT ADDRESS</h2>
 
             <Card className="bg-card border-4 border-primary p-8 shadow-[12px_12px_0px_0px_rgba(147,51,234,1)]">
               <div className="space-y-6">
-                <p className="text-lg text-center text-muted-foreground uppercase">
-                  READY TO LOSE MONEY WITH US? 😭
-                </p>
+                <p className="text-lg text-center text-muted-foreground uppercase">READY TO LOSE MONEY WITH US? 😭</p>
 
                 <div className="bg-secondary border-4 border-primary p-6">
                   <code className="text-sm md:text-base break-all text-foreground">{contractAddress}</code>
