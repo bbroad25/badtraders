@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import sdk from "@farcaster/frame-sdk"
 
 export default function BadTradersLanding() {
   const [copied, setCopied] = useState(false)
@@ -14,13 +13,32 @@ export default function BadTradersLanding() {
     const initFarcasterSDK = async () => {
       if (typeof window === "undefined") return
 
+      const timeout = setTimeout(() => {
+        console.warn("[MiniApp] SDK load timeout – continuing without frame.sdk")
+      }, 5000)
+
       try {
-        await sdk.actions.ready()
-        console.log("[MiniApp] Farcaster Frame SDK ready")
-        const context = await sdk.context
-        console.log("[MiniApp] SDK context:", context)
+        let attempts = 0
+        while (!window.frame?.sdk && attempts < 50) {
+          await new Promise((resolve) => setTimeout(resolve, 100))
+          attempts++
+        }
+
+        if (window.frame?.sdk) {
+          console.log("[MiniApp] frame.sdk found – initializing ready()")
+          await window.frame.sdk.actions.ready()
+          console.log("[MiniApp] Farcaster Frame SDK ready")
+
+          // Optional: debug context
+          const context = await window.frame.sdk.context
+          console.log("[MiniApp] SDK context:", context)
+        } else {
+          console.warn("[MiniApp] frame.sdk not available after waiting")
+        }
       } catch (err) {
         console.error("[MiniApp] Error during sdk.actions.ready():", err)
+      } finally {
+        clearTimeout(timeout)
       }
     }
 
@@ -142,19 +160,4 @@ export default function BadTradersLanding() {
                   {copied ? "✓ COPIED (BAD DECISION)" : "COPY CONTRACT 😂"}
                 </Button>
 
-                <p className="text-sm text-center text-muted-foreground uppercase pt-4">
-                  DISCLAIMER: THIS IS A MEME COIN. YOU WILL PROBABLY LOSE MONEY. BUT YOU WERE GOING TO ANYWAY.
-                </p>
-              </div>
-            </Card>
-
-            <div className="text-center space-y-4 pt-8">
-              <p className="text-3xl">😂😭😂😭😂</p>
-              <p className="text-xl font-bold uppercase text-primary">WELCOME TO THE CLUB</p>
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
-  )
-}
+                <p className
