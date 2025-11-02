@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card"
 // ----------
 export default function BadTradersLanding() {
   const [copied, setCopied] = useState(false)
-  const contractAddress = "0x0000000000000000000000000000000000000000"
+  const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
   useEffect(() => {
     const initFarcasterSDK = async () => {
