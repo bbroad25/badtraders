@@ -15,10 +15,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         {/* Farcaster Frame SDK */}
-        <Script
-          src="https://unpkg.com/@farcaster/frame-sdk@0.1.1/dist/frame-sdk.umd.js"
-          strategy="beforeInteractive"
-        />
+        <Script src="https://unpkg.com/@farcaster/frame-sdk@0.1.12/dist/frame-sdk.umd.js" strategy="beforeInteractive" />
       </head>
       <body>{children}</body>
     </html>
