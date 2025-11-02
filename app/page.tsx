@@ -8,33 +8,23 @@ import sdk from "@farcaster/frame-sdk"
 export default function BadTradersLanding() {
   const [copied, setCopied] = useState(false)
   const [sdkReady, setSdkReady] = useState(false)
+  const [isFrame, setIsFrame] = useState(false)
   const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
   // --- Initialize Farcaster SDK ---
   useEffect(() => {
-    const initSDK = async () => {
-      if (typeof window === "undefined") return
+    if (typeof window === "undefined") return
 
-      let attempts = 0
-      while (!window.frame?.sdk && attempts < 50) {
-        await new Promise((res) => setTimeout(res, 100))
-        attempts++
-      }
-
-      if (window.frame?.sdk) {
-        try {
-          await window.frame.sdk.actions.ready()
+    // Detect if running inside Farcaster Frame
+    if (window.frame?.sdk) {
+      setIsFrame(true)
+      window.frame.sdk.actions.ready()
+        .then(() => {
           console.log("[MiniApp] SDK ready!")
           setSdkReady(true)
-        } catch (err) {
-          console.error("[MiniApp] SDK ready() error:", err)
-        }
-      } else {
-        console.warn("[MiniApp] frame.sdk not available")
-      }
+        })
+        .catch((err) => console.error("[MiniApp] SDK ready() error:", err))
     }
-
-    initSDK()
   }, [])
 
   // --- Clipboard Copy ---
@@ -44,8 +34,8 @@ export default function BadTradersLanding() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // --- Show fallback until SDK is ready ---
-  if (!sdkReady) {
+  // Only show fallback if inside Frame and SDK not ready
+  if (isFrame && !sdkReady) {
     return (
       <div className="min-h-screen flex items-center justify-center text-6xl">
         😂
