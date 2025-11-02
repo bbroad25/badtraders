@@ -1,30 +1,145 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { sdk } from '@farcaster/miniapp-sdk'
+import MyStatus from '@/components/leaderboard/MyStatus'
+
+const ELIGIBILITY_THRESHOLD = 1_000_000;
 
 // ----------
 //  COMPONENT
 // ----------
 export default function BadTradersLanding() {
   const [copied, setCopied] = useState(false)
+  const [walletAddress, setWalletAddress] = useState<string | null>(null)
+  const [userFid, setUserFid] = useState<number | null>(null)
+  const [userBalance, setUserBalance] = useState<number>(0)
+  const [isEligible, setIsEligible] = useState<boolean>(false)
+  const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false)
   const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
+  // SDK initialization is now handled by FarcasterSDKInit component in layout
+
+  const loadTokenBalance = useCallback(async (fid: number | null, address: string | null = null) => {
+    setIsLoadingBalance(true)
+    try {
+      // Prefer FID-based lookup via Neynar API
+      const url = fid
+        ? `/api/token-balance?fid=${fid}`
+        : address
+          ? `/api/token-balance?address=${address}`
+          : null
+
+      if (!url) {
+        setUserBalance(0)
+        setIsEligible(false)
+        return
+      }
+
+      const response = await fetch(url)
+      if (!response.ok) throw new Error('Failed to fetch balance')
+      const data = await response.json()
+      setUserBalance(data.balance || 0)
+      setIsEligible(data.isEligible || false)
+      // Update wallet address from response if provided
+      if (data.address && !walletAddress) {
+        setWalletAddress(data.address)
+      }
+    } catch (err) {
+      console.error('Error loading token balance:', err)
+      setUserBalance(0)
+      setIsEligible(false)
+    } finally {
+      setIsLoadingBalance(false)
+    }
+  }, [walletAddress])
+
+  // Get user context from Farcaster SDK
   useEffect(() => {
-    const initFarcasterSDK = async () => {
-      if (typeof window !== "undefined" && window.frame?.sdk) {
-        try {
-          await window.frame.sdk.actions.ready()
-          console.log("[v0] Farcaster Frame SDK ready")
-        } catch (error) {
-          console.error("[v0] Error initializing Farcaster SDK:", error)
+    const getUserContext = async () => {
+      try {
+        const context = await sdk.context
+
+        if (context?.user?.fid) {
+          const fid = context.user.fid
+          setUserFid(fid)
+
+          // Use FID to fetch token balance via Neynar API
+          await loadTokenBalance(fid)
+
+          // Also try to get wallet address from Ethereum provider if available (for display)
+          const ethProvider = await sdk.wallet.getEthereumProvider()
+          if (ethProvider) {
+            try {
+              const accounts = await ethProvider.request({ method: 'eth_accounts' })
+              if (accounts && accounts[0]) {
+                setWalletAddress(accounts[0])
+              }
+            } catch (e) {
+              console.log('Could not get wallet address:', e)
+            }
+          }
         }
+      } catch (err) {
+        console.log('Farcaster context not available (normal if not in Farcaster client)', err)
       }
     }
 
-    initFarcasterSDK()
+    getUserContext()
+  }, [loadTokenBalance])
+
+  const handleConnectWallet = useCallback(async () => {
+    try {
+      // First try to get FID from context
+      const context = await sdk.context
+      if (context?.user?.fid) {
+        const fid = context.user.fid
+        setUserFid(fid)
+        await loadTokenBalance(fid)
+      }
+
+      // Also get wallet address for display
+      const ethProvider = await sdk.wallet.getEthereumProvider()
+      if (ethProvider) {
+        try {
+          const accounts = await ethProvider.request({ method: 'eth_requestAccounts' })
+          if (accounts && accounts[0]) {
+            setWalletAddress(accounts[0])
+            // If no FID available, fallback to address-based lookup
+            if (!context?.user?.fid) {
+              await loadTokenBalance(null, accounts[0])
+            }
+          }
+        } catch (e) {
+          console.log('Could not get wallet address:', e)
+        }
+      } else {
+        alert('Ethereum provider not available. Make sure you\'re using Farcaster client.')
+      }
+    } catch (err) {
+      console.error('Error connecting wallet:', err)
+      alert('Failed to connect wallet. Please try again.')
+    }
+  }, [loadTokenBalance])
+
+  // Auto-trigger add app on mount (Farcaster handles the UI)
+  useEffect(() => {
+    const triggerAddApp = async () => {
+      try {
+        await sdk.actions.addMiniApp()
+      } catch (err: any) {
+        // User might have already added or rejected - that's fine
+        if (err?.name !== 'AddMiniApp.RejectedByUser') {
+          console.log('Add app status:', err?.message || 'Already added or not available')
+        }
+      }
+    }
+    // Small delay to ensure SDK is ready
+    const timer = setTimeout(triggerAddApp, 1000)
+    return () => clearTimeout(timer)
   }, [])
 
   const copyToClipboard = () => {
@@ -37,20 +152,20 @@ export default function BadTradersLanding() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Floating emojis */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-[10%] left-[5%] text-6xl opacity-20">😂</div>
-        <div className="absolute top-[20%] right-[10%] text-5xl opacity-15">😭</div>
-        <div className="absolute top-[40%] left-[15%] text-7xl opacity-10">😂</div>
-        <div className="absolute top-[60%] right-[20%] text-6xl opacity-20">😭</div>
-        <div className="absolute top-[80%] left-[25%] text-5xl opacity-15">😂</div>
-        <div className="absolute top-[30%] right-[5%] text-8xl opacity-10">😭</div>
-        <div className="absolute top-[70%] right-[40%] text-6xl opacity-15">😂</div>
-        <div className="absolute top-[15%] left-[40%] text-5xl opacity-20">😭</div>
+        <div className="absolute top-[10%] left-[5%] text-6xl opacity-20 emoji-float-1">😂</div>
+        <div className="absolute top-[20%] right-[10%] text-5xl opacity-15 emoji-float-2">😭</div>
+        <div className="absolute top-[40%] left-[15%] text-7xl opacity-10 emoji-float-3">😂</div>
+        <div className="absolute top-[60%] right-[20%] text-6xl opacity-20 emoji-float-1">😭</div>
+        <div className="absolute top-[80%] left-[25%] text-5xl opacity-15 emoji-float-2">😂</div>
+        <div className="absolute top-[30%] right-[5%] text-8xl opacity-10 emoji-float-3">😭</div>
+        <div className="absolute top-[70%] right-[40%] text-6xl opacity-15 emoji-float-1">😂</div>
+        <div className="absolute top-[15%] left-[40%] text-5xl opacity-20 emoji-float-2">😭</div>
       </div>
 
       {/* Main content */}
       <div className="relative z-10">
         {/* Hero Section */}
-        <section className="min-h-screen flex flex-col items-center justify-center px-4 border-b-4 border-primary">
+        <section className="min-h-screen flex flex-col items-center justify-center px-4 py-12 border-b-4 border-primary">
           <div className="max-w-5xl w-full text-center space-y-8">
             <div className="space-y-4">
               <h1 className="text-7xl md:text-9xl font-bold text-primary uppercase tracking-tighter text-balance">
@@ -72,6 +187,25 @@ export default function BadTradersLanding() {
                 "BULL MARKET? EVERYONE'S MAKING MONEY? NOT US. WE'RE THE FARCASTER USERS WHO SOMEHOW LOSE MONEY WHEN THE CHARTS GO UP."
               }
             </p>
+
+            {/* My Status Card - shown prominently on main page */}
+            <div className="max-w-md mx-auto pt-8">
+              <MyStatus
+                walletAddress={walletAddress}
+                balance={userBalance}
+                isEligible={isEligible}
+                threshold={ELIGIBILITY_THRESHOLD}
+                isLoadingBalance={isLoadingBalance}
+                onBuyMore={() => {
+                  const uniswapUrl = `https://app.uniswap.org/#/tokens/ethereum/${contractAddress}`
+                  sdk.actions.openUrl(uniswapUrl).catch(() => {
+                    if (typeof window !== 'undefined') {
+                      window.open(uniswapUrl, '_blank')
+                    }
+                  })
+                }}
+              />
+            </div>
 
             <div className="pt-8 flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Button
@@ -172,3 +306,4 @@ export default function BadTradersLanding() {
     </div>
   )
 }
+

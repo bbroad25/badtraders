@@ -1,24 +1,100 @@
 "use client"
 
 import { useState, useCallback, useEffect } from 'react';
+import { sdk } from '@farcaster/miniapp-sdk';
 import Header from '@/components/leaderboard/Header';
 import ErrorMessage from '@/components/leaderboard/ErrorMessage';
 import Leaderboard from '@/components/leaderboard/Leaderboard';
 import MyStatus from '@/components/leaderboard/MyStatus';
 import MemeOfTheWeek from '@/components/leaderboard/MemeOfTheWeek';
+import MintNFT from '@/components/leaderboard/MintNFT';
 import { LeaderboardEntry } from '@/types/leaderboard';
 
 const ELIGIBILITY_THRESHOLD = 1_000_000;
+const BADTRADERS_CONTRACT = '0x0774409Cda69A47f272907fd5D0d80173167BB07';
 
 export default function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState<boolean>(true);
-  const [isWalletConnected, setIsWalletConnected] = useState<boolean>(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [userFid, setUserFid] = useState<number | null>(null);
   const [userBalance, setUserBalance] = useState<number>(0);
   const [isEligible, setIsEligible] = useState<boolean>(false);
+  const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false);
   const [memeImageUrl, setMemeImageUrl] = useState<string | null>(null);
   const [isGeneratingMeme, setIsGeneratingMeme] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const loadTokenBalance = useCallback(async (fid: number | null, address: string | null = null) => {
+    setIsLoadingBalance(true);
+    try {
+      // Prefer FID-based lookup via Neynar API
+      const url = fid
+        ? `/api/token-balance?fid=${fid}`
+        : address
+          ? `/api/token-balance?address=${address}`
+          : null
+
+      if (!url) {
+        setUserBalance(0);
+        setIsEligible(false);
+        return;
+      }
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch balance');
+      const data = await response.json();
+      setUserBalance(data.balance || 0);
+      setIsEligible(data.isEligible || false);
+      // Update wallet address from response if provided
+      if (data.address && !walletAddress) {
+        setWalletAddress(data.address);
+      }
+    } catch (err) {
+      console.error('Error loading token balance:', err);
+      setUserBalance(0);
+      setIsEligible(false);
+    } finally {
+      setIsLoadingBalance(false);
+    }
+  }, [walletAddress]);
+
+  // Get user context from Farcaster SDK
+  useEffect(() => {
+    const getUserContext = async () => {
+      try {
+        // sdk.context is a Promise - need to await it
+        const context = await sdk.context;
+
+        // Check if we're in a Mini App and user is logged in
+        if (context?.user?.fid) {
+          const fid = context.user.fid;
+          setUserFid(fid);
+
+          // Use FID to fetch token balance via Neynar API
+          await loadTokenBalance(fid);
+
+          // Also try to get wallet address from Ethereum provider if available (for display)
+          const ethProvider = await sdk.wallet.getEthereumProvider();
+          if (ethProvider) {
+            try {
+              const accounts = await ethProvider.request({ method: 'eth_accounts' });
+              if (accounts && accounts[0]) {
+                setWalletAddress(accounts[0]);
+              }
+            } catch (e) {
+              console.log('Could not get wallet address:', e);
+            }
+          }
+        }
+      } catch (err) {
+        // Not in Farcaster client or context not available - that's okay
+        console.log('Farcaster context not available (normal if not in Farcaster client)', err);
+      }
+    };
+
+    getUserContext();
+  }, [loadTokenBalance]);
 
   useEffect(() => {
     const loadLeaderboard = async () => {
@@ -42,13 +118,71 @@ export default function LeaderboardPage() {
     loadLeaderboard();
   }, []);
 
-  const handleConnectWallet = useCallback(() => {
-    // This is a simulation. In a real app, you'd use ethers.js, wagmi, etc.
-    setIsWalletConnected(true);
-    const mockBalance = Math.random() > 0.3 ? Math.random() * 2_000_000 : Math.random() * 500_000;
-    setUserBalance(mockBalance);
-    setIsEligible(mockBalance >= ELIGIBILITY_THRESHOLD);
+  const handleConnectWallet = useCallback(async () => {
+    try {
+      // First try to get FID from context
+      const context = await sdk.context;
+      if (context?.user?.fid) {
+        const fid = context.user.fid;
+        setUserFid(fid);
+        await loadTokenBalance(fid);
+      }
+
+      // Also get wallet address for display
+      const ethProvider = await sdk.wallet.getEthereumProvider();
+      if (ethProvider) {
+        try {
+          const accounts = await ethProvider.request({ method: 'eth_requestAccounts' });
+          if (accounts && accounts[0]) {
+            setWalletAddress(accounts[0]);
+            // If no FID available, fallback to address-based lookup
+            if (!context?.user?.fid) {
+              await loadTokenBalance(null, accounts[0]);
+            }
+          }
+        } catch (e) {
+          console.log('Could not get wallet address:', e);
+        }
+      } else {
+        setError('Ethereum provider not available. Make sure you\'re using Farcaster client.');
+      }
+    } catch (err) {
+      console.error('Error connecting wallet:', err);
+      setError('Failed to connect wallet. Please try again.');
+    }
+  }, [loadTokenBalance]);
+
+  const handleBuyMore = useCallback(() => {
+    // Open Uniswap or another DEX to buy BadTraders token
+    const uniswapUrl = `https://app.uniswap.org/#/tokens/ethereum/${BADTRADERS_CONTRACT}`;
+    sdk.actions.openUrl(uniswapUrl).catch((err) => {
+      console.error('Error opening Uniswap:', err);
+      // Fallback to window.open if SDK doesn't work
+      if (typeof window !== 'undefined') {
+        window.open(uniswapUrl, '_blank');
+      }
+    });
   }, []);
+
+  // Auto-trigger add app on mount (Farcaster handles the UI via native menu)
+  useEffect(() => {
+    const triggerAddApp = async () => {
+      try {
+        await sdk.actions.addMiniApp();
+      } catch (err: any) {
+        // User might have already added or rejected - that's fine
+        if (err?.name !== 'AddMiniApp.RejectedByUser') {
+          console.log('Add app status:', err?.message || 'Already added or not available');
+        }
+      }
+    };
+    // Small delay to ensure SDK is ready
+    const timer = setTimeout(triggerAddApp, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Notifications are handled by Farcaster client's native menu
+  // No custom UI needed
 
   const handleGenerateMeme = useCallback(async () => {
     const winner = leaderboard[0];
@@ -88,14 +222,14 @@ export default function LeaderboardPage() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Floating emojis */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-[10%] left-[5%] text-6xl opacity-20">😂</div>
-        <div className="absolute top-[20%] right-[10%] text-5xl opacity-15">😭</div>
-        <div className="absolute top-[40%] left-[15%] text-7xl opacity-10">😂</div>
-        <div className="absolute top-[60%] right-[20%] text-6xl opacity-20">😭</div>
-        <div className="absolute top-[80%] left-[25%] text-5xl opacity-15">😂</div>
-        <div className="absolute top-[30%] right-[5%] text-8xl opacity-10">😭</div>
-        <div className="absolute top-[70%] right-[40%] text-6xl opacity-15">😂</div>
-        <div className="absolute top-[15%] left-[40%] text-5xl opacity-20">😭</div>
+        <div className="absolute top-[10%] left-[5%] text-6xl opacity-20 emoji-float-1">😂</div>
+        <div className="absolute top-[20%] right-[10%] text-5xl opacity-15 emoji-float-2">😭</div>
+        <div className="absolute top-[40%] left-[15%] text-7xl opacity-10 emoji-float-3">😂</div>
+        <div className="absolute top-[60%] right-[20%] text-6xl opacity-20 emoji-float-1">😭</div>
+        <div className="absolute top-[80%] left-[25%] text-5xl opacity-15 emoji-float-2">😂</div>
+        <div className="absolute top-[30%] right-[5%] text-8xl opacity-10 emoji-float-3">😭</div>
+        <div className="absolute top-[70%] right-[40%] text-6xl opacity-15 emoji-float-1">😂</div>
+        <div className="absolute top-[15%] left-[40%] text-5xl opacity-20 emoji-float-2">😭</div>
       </div>
 
       {/* Main content */}
@@ -103,16 +237,48 @@ export default function LeaderboardPage() {
         <section className="min-h-screen flex flex-col items-center justify-center px-4 py-20 border-b-4 border-primary">
           <div className="container mx-auto max-w-6xl">
             <Header />
+            {/* Wallet status inline in leaderboard */}
+            {walletAddress && (
+              <div className="text-center mb-4">
+                <div className="inline-block bg-card border-2 border-primary p-2 rounded">
+                  <div className="text-xs text-muted-foreground uppercase">
+                    Wallet: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                  </div>
+                  {userBalance > 0 && (
+                    <div className="text-xs text-primary font-bold">
+                      {userBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })} $BADTRADERS
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {!walletAddress && (
+              <div className="text-center mb-4">
+                <Button
+                  onClick={handleConnectWallet}
+                  size="sm"
+                  className="bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground uppercase border-2 border-foreground"
+                >
+                  Connect Wallet
+                </Button>
+              </div>
+            )}
             <main className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
               <div className="lg:col-span-2">
                 <Leaderboard data={leaderboard} isLoading={isLoadingLeaderboard} />
               </div>
               <div className="flex flex-col gap-8">
                 <MyStatus
-                  isConnected={isWalletConnected}
-                  onConnect={handleConnectWallet}
+                  walletAddress={walletAddress}
                   balance={userBalance}
                   isEligible={isEligible}
+                  threshold={ELIGIBILITY_THRESHOLD}
+                  isLoadingBalance={isLoadingBalance}
+                  onBuyMore={handleBuyMore}
+                />
+                <MintNFT
+                  hasEnoughTokens={isEligible}
+                  balance={userBalance}
                   threshold={ELIGIBILITY_THRESHOLD}
                 />
                 <MemeOfTheWeek
