@@ -9,35 +9,38 @@ export default function BadTradersLanding() {
 
   const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
-  // --- Mini App SDK ready call & debug logs ---
+  // --- Mini App ready logic ---
   useEffect(() => {
-    if (typeof window === "undefined") {
-      console.log("[MiniApp] window is undefined")
-      return
+    let attempts = 0
+    const maxAttempts = 50
+    const interval = 100 // ms
+
+    const checkFrame = () => {
+      if (typeof window === "undefined") return
+
+      if (window.frame?.sdk) {
+        console.log("[MiniApp] frame.sdk found, calling ready()")
+        window.frame.sdk.actions
+          .ready()
+          .then(() => {
+            console.log("[MiniApp] sdk.actions.ready() succeeded")
+          })
+          .catch((err) => {
+            console.error("[MiniApp] sdk.actions.ready() error:", err)
+          })
+      } else {
+        attempts++
+        if (attempts < maxAttempts) {
+          setTimeout(checkFrame, interval)
+        } else {
+          console.warn("[MiniApp] frame.sdk not found after max attempts")
+        }
+      }
     }
 
-    if (window.frame === undefined) {
-      console.log("[MiniApp] window.frame is undefined (not in mini app yet)")
-    } else {
-      console.log("[MiniApp] window.frame is defined")
-    }
-
-    if (window.frame?.sdk) {
-      console.log("[MiniApp] frame.sdk exists, calling ready()")
-      window.frame.sdk.actions
-        .ready()
-        .then(() => {
-          console.log("[MiniApp] sdk.actions.ready() succeeded")
-        })
-        .catch((err) => {
-          console.error("[MiniApp] sdk.actions.ready() error:", err)
-        })
-    } else {
-      console.warn("[MiniApp] no frame.sdk found")
-    }
+    checkFrame()
   }, [])
 
-  // --- Clipboard Copy ---
   const copyToClipboard = () => {
     navigator.clipboard.writeText(contractAddress)
     setCopied(true)
