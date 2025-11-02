@@ -3,43 +3,45 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { sdk } from "@farcaster/miniapp-sdk" // official mini app SDK
 
 export default function BadTradersLanding() {
   const [copied, setCopied] = useState(false)
   const [isFrame, setIsFrame] = useState(false)
-  const [sdkReady, setSdkReady] = useState(false)
+  const [readyCalled, setReadyCalled] = useState(false)
   const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
-  // --- Poll for Farcaster Frame and SDK ---
+  // --- Poll for Frame and call sdk.actions.ready() ---
   useEffect(() => {
     if (typeof window === "undefined") return
 
     let attempts = 0
-    const maxAttempts = 100 // ~10 seconds
+    const maxAttempts = 50
     const interval = 100
 
-    const pollFrameSdk = () => {
+    const pollFrame = () => {
       const timer = setInterval(async () => {
         attempts++
         if (window.frame?.sdk) {
           clearInterval(timer)
           setIsFrame(true)
           try {
-            await window.frame.sdk.actions.ready()
+            console.log("[MiniApp] Calling sdk.actions.ready()")
+            await sdk.actions.ready()
             console.log("[MiniApp] SDK ready!")
           } catch (err) {
-            console.error("[MiniApp] SDK ready() error:", err)
+            console.error("[MiniApp] Error calling sdk.actions.ready():", err)
           }
-          setSdkReady(true)
+          setReadyCalled(true)
         } else if (attempts >= maxAttempts) {
           clearInterval(timer)
           console.warn("[MiniApp] frame.sdk not found after polling")
-          setSdkReady(true) // fallback to render page anyway
+          setReadyCalled(true) // fallback to render anyway
         }
       }, interval)
     }
 
-    pollFrameSdk()
+    pollFrame()
   }, [])
 
   // --- Clipboard Copy ---
@@ -49,8 +51,8 @@ export default function BadTradersLanding() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // --- Only show fallback if Frame detected but SDK not ready ---
-  if (isFrame && !sdkReady) {
+  // --- Show fallback while inside Frame and before ready() called ---
+  if (isFrame && !readyCalled) {
     return (
       <div className="min-h-screen flex items-center justify-center text-6xl">
         😂
@@ -58,6 +60,7 @@ export default function BadTradersLanding() {
     )
   }
 
+  // --- Main Landing Page UI ---
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Floating emojis */}
@@ -72,7 +75,6 @@ export default function BadTradersLanding() {
         <div className="absolute top-[15%] left-[40%] text-5xl opacity-20">😭</div>
       </div>
 
-      {/* Main content */}
       <div className="relative z-10">
         {/* Hero Section */}
         <section className="min-h-screen flex flex-col items-center justify-center px-4 border-b-4 border-primary">
