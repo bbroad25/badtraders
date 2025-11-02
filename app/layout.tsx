@@ -43,6 +43,8 @@ export const metadata: Metadata = {
           url: "https://badtraders.vercel.app",
         },
       },
+      homeUrl: "https://badtraders.vercel.app",
+      postUrl: "https://badtraders.vercel.app/api/frame",
     }),
   },
 }
@@ -50,9 +52,9 @@ export const metadata: Metadata = {
 // ---- ROOT LAYOUT ----
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode
-}) {
+}>) {
   return (
     <html lang="en">
       <head>

@@ -1,0 +1,8 @@
+{
+  "name": "BadTraders Leaderboard",
+  "description": "The $BadTrader competition leaderboard. Track the biggest weekly losses and see who wins! Connect your wallet to check your eligibility. Powered by Gemini for weekly winner memes.",
+  "image": "/og-image.jpg",
+  "splashImage": "/badtraders.png",
+  "requestFramePermissions": []
+}
+
