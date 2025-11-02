@@ -12,27 +12,52 @@ export default function FarcasterSDKInit() {
   useEffect(() => {
     const initFarcasterSDK = async () => {
       try {
+        console.log("[BadTraders] 🔄 Attempting to call sdk.actions.ready()...")
+
         // Call ready() to hide splash screen and display content
         // This must be called after the app is fully loaded
         await sdk.actions.ready()
-        console.log("[BadTraders] Farcaster Mini App SDK ready")
-      } catch (error) {
-        // Only log errors if we're actually in a Farcaster environment
-        // In regular browser, this will fail silently which is fine
-        if (typeof window !== "undefined") {
-          // Check if we're in a Farcaster client
-          const isFarcasterClient = navigator.userAgent.includes('Farcaster') ||
-                                    window.location.hostname.includes('farcaster')
+        console.log("[BadTraders] ✅ Farcaster SDK ready() called successfully")
 
-          if (isFarcasterClient) {
-            console.error("[BadTraders] Error initializing Farcaster SDK:", error)
+        // Get the context to check if we're in Farcaster
+        const context = sdk.context
+        console.log("[BadTraders] 📱 Farcaster context:", context)
+
+        // Try to trigger the add mini app modal if not added
+        // This enables the hamburger menu buttons (Add App, Notifications, Remove App)
+        try {
+          await sdk.actions.addMiniApp()
+          console.log("[BadTraders] ✅ Add mini app modal triggered")
+        } catch (addError: any) {
+          // User might have already added the app or it's not available - this is normal
+          // Don't treat this as an error, just log it for debugging
+          console.log("[BadTraders] ℹ️ Add mini app status:", addError?.message || 'Already added or not available')
+        }
+      } catch (error: any) {
+        console.error("[BadTraders] ❌ SDK ready() error:", error)
+        // Try calling it again as a fallback (matching pumpkin project pattern)
+        try {
+          console.log("[BadTraders] 🔄 Retrying sdk.actions.ready()...")
+          await sdk.actions.ready()
+          console.log("[BadTraders] ✅ SDK ready() succeeded on retry")
+
+          // Try addMiniApp after retry succeeds
+          try {
+            await sdk.actions.addMiniApp()
+            console.log("[BadTraders] ✅ Add mini app modal triggered after retry")
+          } catch (addError: any) {
+            console.log("[BadTraders] ℹ️ Add mini app status after retry:", addError?.message || 'Already added or not available')
           }
+        } catch (retryError) {
+          console.error("[BadTraders] ❌ Retry also failed:", retryError)
         }
       }
     }
 
-    // Call ready() after component mounts and app is loaded
+    // Call immediately and also after a short delay (matching pumpkin project pattern)
     initFarcasterSDK()
+    const timer = setTimeout(initFarcasterSDK, 500)
+    return () => clearTimeout(timer)
   }, [])
 
   return null // This component doesn't render anything

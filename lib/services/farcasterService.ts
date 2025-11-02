@@ -1,11 +1,12 @@
 // lib/services/farcasterService.ts
 import { FarcasterProfile } from '@/types/leaderboard';
-import { NeynarAPIClient } from "@neynar/nodejs-sdk";
+import { Configuration, NeynarAPIClient } from "@neynar/nodejs-sdk";
 
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY;
 
-// Only create client if API key exists
-const neynarClient = NEYNAR_API_KEY ? new NeynarAPIClient(NEYNAR_API_KEY) : null;
+// Only create client if API key exists (using Configuration like pumpkin project)
+const neynarConfig = NEYNAR_API_KEY ? new Configuration({ apiKey: NEYNAR_API_KEY }) : null;
+const neynarClient = neynarConfig ? new NeynarAPIClient(neynarConfig) : null;
 
 /**
  * Fetches Farcaster profiles (FID and username) for a given list of Ethereum addresses.
@@ -20,9 +21,19 @@ export async function getFarcasterProfiles(addresses: string[]): Promise<Record<
   }
 
   try {
-    // Use Neynar's API to fetch users by Ethereum addresses
+    // Use Neynar's API to fetch users by Ethereum addresses (same method as pumpkin project)
     // This returns FID, username, and other profile data
-    const { users } = await neynarClient.fetchBulkUsersByEthereumAddress(addresses);
+    const response = await neynarClient.fetchBulkUsersByEthOrSolAddress({ addresses });
+
+    // The response is keyed by address, convert to array
+    const users: any[] = [];
+    Object.values(response).forEach((addressUsers: any) => {
+      if (Array.isArray(addressUsers)) {
+        users.push(...addressUsers);
+      } else if (addressUsers) {
+        users.push(addressUsers);
+      }
+    });
 
     const profileMap: Record<string, FarcasterProfile> = {};
 

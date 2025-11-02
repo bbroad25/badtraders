@@ -6,8 +6,9 @@ import { BADTRADER_TOKEN_ADDRESS, UNISWAP_UNIVERSAL_ROUTER_ADDRESS, WETH_ADDRESS
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
 
 // Create provider only if API key exists, otherwise return empty results
+// Base mainnet chain ID: 8453
 const provider = ALCHEMY_API_KEY
-  ? new ethers.AlchemyProvider('base-mainnet', ALCHEMY_API_KEY)
+  ? new ethers.AlchemyProvider(8453, ALCHEMY_API_KEY)
   : null;
 const ELIGIBILITY_THRESHOLD = ethers.parseUnits("1000000", 18); // 1M tokens with 18 decimals
 

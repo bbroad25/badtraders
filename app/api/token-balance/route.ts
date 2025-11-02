@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBadTradersBalance, checkEligibility } from '@/lib/services/tokenService';
+import { Configuration, NeynarAPIClient } from '@neynar/nodejs-sdk';
 
 const BADTRADERS_TOKEN_ADDRESS = '0x0774409Cda69A47f272907fd5D0d80173167BB07';
 const ELIGIBILITY_THRESHOLD = 1_000_000;
@@ -33,45 +34,70 @@ export async function GET(request: NextRequest) {
         });
       } else {
         try {
-          // Call Neynar API to get token balances by FID
-          const response = await fetch(
-            `https://api.neynar.com/v2/farcaster/user/balances?fid=${fid}&networks=ethereum`,
-            {
-              headers: {
-                'Authorization': `Bearer ${neynarApiKey}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
+          // Use Neynar SDK with Configuration (same pattern as pumpkin project)
+          const neynarConfig = new Configuration({ apiKey: neynarApiKey });
+          const neynarClient = new NeynarAPIClient(neynarConfig);
 
-          if (!response.ok) {
-            const errorText = await response.text().catch(() => 'Unknown error');
-            console.error('Neynar API error response:', response.status, errorText);
-            throw new Error(`Neynar API error: ${response.status} - ${errorText.substring(0, 200)}`);
-          }
+          // Use SDK method to fetch user balances by FID
+          const response = await neynarClient.fetchUserBalance({
+            fid: fid,
+            networks: ['base'], // Base mainnet
+          });
 
-          const data = await response.json();
-          console.log('Neynar API response:', JSON.stringify(data, null, 2));
+          console.log('Neynar API response:', JSON.stringify(response, null, 2));
 
           // Parse Neynar response to find BadTraders token balance
+          // Response structure: { user_balance: { address_balances: [...] } }
           let balance = 0;
           let walletAddress: string | null = null;
 
-          // Check response structure - could be user_balance or result key
-          const userBalance = data?.user_balance || data?.result?.user_balance || data;
+          const userBalance = response?.user_balance || response;
 
+          // First, try to find BadTraders token in Neynar response
           if (userBalance?.address_balances) {
             for (const addressBalance of userBalance.address_balances) {
               if (addressBalance.token_balances) {
                 for (const tokenBalance of addressBalance.token_balances) {
-                  if (tokenBalance.token?.address?.toLowerCase() === BADTRADERS_TOKEN_ADDRESS.toLowerCase()) {
-                    // Parse balance string (e.g., "1234.56")
-                    balance = parseFloat(tokenBalance.balance?.in_token || '0');
+                  const tokenAddress = tokenBalance.token?.address?.toLowerCase();
+
+                  // Check if this is the BadTraders token
+                  if (tokenAddress === BADTRADERS_TOKEN_ADDRESS.toLowerCase()) {
+                    // Parse balance - in_token is already a number
+                    balance = typeof tokenBalance.balance?.in_token === 'number'
+                      ? tokenBalance.balance.in_token
+                      : parseFloat(tokenBalance.balance?.in_token || tokenBalance.balance || '0');
                     walletAddress = addressBalance.verified_address?.address || null;
+                    console.log(`Found BadTraders token in Neynar response! Balance: ${balance}, Address: ${walletAddress}`);
                     break;
                   }
                 }
                 if (balance > 0) break;
+              }
+            }
+          }
+
+          // If not found in Neynar response, check wallet addresses directly using Alchemy
+          // Neynar might not return all ERC-20 tokens, so we'll check each wallet address
+          if (balance === 0 && userBalance?.address_balances) {
+            console.log('BadTraders token not in Neynar response, checking wallets directly via Alchemy...');
+
+            // Get all wallet addresses from the response
+            const walletAddresses = userBalance.address_balances
+              .map(ab => ab.verified_address?.address)
+              .filter((addr): addr is string => !!addr && /^0x[a-fA-F0-9]{40}$/i.test(addr));
+
+            // Check each wallet for BadTraders token balance using Alchemy
+            for (const addr of walletAddresses) {
+              try {
+                const walletBalance = await getBadTradersBalance(addr);
+                if (walletBalance > 0) {
+                  balance = walletBalance;
+                  walletAddress = addr;
+                  console.log(`Found BadTraders token via Alchemy! Balance: ${balance}, Address: ${walletAddress}`);
+                  break;
+                }
+              } catch (error) {
+                console.warn(`Error checking balance for ${addr}:`, error);
               }
             }
           }
@@ -89,11 +115,33 @@ export async function GET(request: NextRequest) {
           });
         } catch (error: any) {
           console.error('Error fetching balance from Neynar:', error);
-          console.error('Error details:', {
-            message: error?.message,
-            stack: error?.stack,
-            fid
-          });
+
+          // Handle SDK errors - check if it's an API error response
+          if (NeynarAPIClient.isApiErrorResponse && NeynarAPIClient.isApiErrorResponse(error)) {
+            const status = error.response?.status;
+            const errorData = error.response?.data;
+
+            // Handle 401 (unauthorized) gracefully
+            if (status === 401) {
+              console.warn('NEYNAR_API_KEY is invalid or expired, returning zero balance for FID:', fid);
+              return NextResponse.json({
+                fid,
+                address: null,
+                balance: 0,
+                isEligible: false,
+                threshold: ELIGIBILITY_THRESHOLD,
+              });
+            }
+
+            console.error('Neynar API error:', status, errorData);
+          } else {
+            console.error('Error details:', {
+              message: error?.message,
+              stack: error?.stack,
+              fid
+            });
+          }
+
           // Fallback to address-based lookup if Neynar fails
           if (addressParam) {
             // Continue to address-based logic below
