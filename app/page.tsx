@@ -182,7 +182,7 @@ export default function BadTradersLanding() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground pt-16">
       {/* Floating emojis */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute top-[10%] left-[5%] text-6xl opacity-20 emoji-float-1">😂</div>
@@ -240,12 +240,15 @@ export default function BadTradersLanding() {
             </div>
 
             <div className="pt-8 flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button
-                size="lg"
-                className="bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground text-xl px-12 py-8 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-              >
-                {"WE'RE NGMI 😭"}
-              </Button>
+              <Link href="/how-it-works">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground text-xl px-12 py-8 font-bold uppercase border-4 border-primary shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  HOW IT WORKS ❓
+                </Button>
+              </Link>
               <Link href="/leaderboard">
                 <Button
                   size="lg"

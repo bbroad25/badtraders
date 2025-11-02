@@ -256,7 +256,7 @@ export default function LeaderboardPage() {
   }, [leaderboard]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground pt-16">
       {/* Floating emojis */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute top-[10%] left-[5%] text-6xl opacity-20 emoji-float-1">😂</div>
