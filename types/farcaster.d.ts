@@ -1,13 +1,3 @@
-declare global {
-  interface Window {
-    frame?: {
-      sdk: {
-        actions: {
-          ready: () => Promise<void>
-        }
-      }
-    }
-  }
-}
-
+// Farcaster Mini App SDK types
+// The SDK is imported from @farcaster/miniapp-sdk
 export {}

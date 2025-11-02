@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Space_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import Script from "next/script"
+import FarcasterSDKInit from "@/components/FarcasterSDKInit"
 import "./globals.css"
 
 const spaceMono = Space_Mono({
@@ -27,7 +28,8 @@ export const metadata: Metadata = {
       version: "1",
       title: "$BADTRADERS Leaderboard",
       description: "Track the biggest weekly losses. The $BadTrader competition leaderboard.",
-      imageUrl: "https://badtraders.vercel.app/og-image.jpg",
+      imageUrl: "https://badtraders.vercel.app/badtraders.png",
+      splashImageUrl: "https://badtraders.vercel.app/badtraders.png",
       button: {
         title: "Open Leaderboard",
         action: { type: "launch" },
@@ -51,10 +53,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <Script
-          src="https://unpkg.com/@farcaster/frame-sdk@0.1.1/dist/frame-sdk.umd.js"
-          strategy="beforeInteractive"
-        />
         {/* Fallback meta tags for crawlers */}
         <meta property="fc:frame" content="vNext" />
         <meta
@@ -63,7 +61,8 @@ export default function RootLayout({
             version: "1",
             title: "$BADTRADERS Leaderboard",
             description: "Track the biggest weekly losses. The $BadTrader competition leaderboard.",
-            imageUrl: "https://badtraders.vercel.app/og-image.jpg",
+            imageUrl: "https://badtraders.vercel.app/badtraders.png",
+            splashImageUrl: "https://badtraders.vercel.app/badtraders.png",
             button: {
               title: "Open Leaderboard",
               action: { type: "launch" },
@@ -74,6 +73,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`${spaceMono.variable} font-mono antialiased`}>
+        <FarcasterSDKInit />
         {children}
         <Analytics />
       </body>
