@@ -6,7 +6,8 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "db:setup": "tsx scripts/setup-db.ts"
   },
   "dependencies": {
     "@farcaster/miniapp-sdk": "^0.2.1",
@@ -52,6 +53,9 @@
     "lucide-react": "^0.454.0",
     "next": "16.0.0",
     "next-themes": "^0.4.6",
+    "better-sqlite3": "^11.3.0",
+    "pg": "^8.11.3",
+    "tsx": "^4.19.2",
     "react": "19.2.0",
     "react-day-picker": "9.8.0",
     "react-dom": "19.2.0",
@@ -65,7 +69,9 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.9",
+    "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22",
+    "@types/pg": "^8.11.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "postcss": "^8.5",

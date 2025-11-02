@@ -10,10 +10,10 @@ const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
 const provider = ALCHEMY_API_KEY
   ? new ethers.AlchemyProvider(8453, ALCHEMY_API_KEY)
   : null;
-const ELIGIBILITY_THRESHOLD = ethers.parseUnits("1000000", 18); // 1M tokens with 18 decimals
+const ELIGIBILITY_THRESHOLD = ethers.parseUnits("10000000", 18); // 10M tokens with 18 decimals
 
 /**
- * Fetches all wallet addresses that hold at least 1M of the $BadTrader token.
+ * Fetches all wallet addresses that hold at least 10M of the $BadTrader token.
  * Uses Alchemy's SDK for efficient token holder retrieval.
  * @returns {Promise<string[]>} An array of eligible wallet addresses.
  */

@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useState, useEffect } from 'react';
+import { sdk } from '@farcaster/miniapp-sdk';
 
 interface MyStatusProps {
   walletAddress: string | null;
@@ -10,10 +11,150 @@ interface MyStatusProps {
   isEligible: boolean;
   threshold: number;
   isLoadingBalance: boolean;
+  fid: number | null;
   onBuyMore?: () => void;
+  onRegister?: () => Promise<void>;
 }
 
-export default function MyStatus({ walletAddress, balance, isEligible, threshold, isLoadingBalance, onBuyMore }: MyStatusProps) {
+export default function MyStatus({
+  walletAddress,
+  balance,
+  isEligible,
+  threshold,
+  isLoadingBalance,
+  fid,
+  onBuyMore,
+  onRegister
+}: MyStatusProps) {
+  const [isRegistered, setIsRegistered] = useState<boolean | null>(null);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [isLoadingRegistration, setIsLoadingRegistration] = useState(false);
+
+  // Fetch registration status
+  useEffect(() => {
+    if (!fid) return;
+
+    let cancelled = false;
+    setIsLoadingRegistration(true);
+
+    fetch(`/api/users/${fid}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled) {
+          setIsRegistered(data.isRegistered || false);
+          setIsLoadingRegistration(false);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          console.error('Error fetching registration status:', err);
+          setIsRegistered(false);
+          setIsLoadingRegistration(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fid]); // Removed isLoadingRegistration from deps to prevent loops
+
+  const handleRegister = async () => {
+    if (!walletAddress || !fid || isRegistering) return;
+
+    setIsRegistering(true);
+    try {
+      // Get username from Farcaster SDK context (it's RIGHT THERE!)
+      let username: string | null = null;
+      try {
+        const context = await sdk.context;
+        username = context?.user?.username || null;
+      } catch (e) {
+        console.warn('Could not get username from SDK context:', e);
+      }
+
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fid,
+          walletAddress,
+          username
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setIsRegistered(true);
+
+        // Compose a cast to share the miniapp and token
+        try {
+          const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://badtraders.vercel.app';
+          const miniappUrl = baseUrl;
+          const tokenAddress = '0x0774409Cda69A47f272907fd5D0d80173167BB07';
+
+          // Open compose cast with miniapp embed and token info
+          const castResult = await sdk.actions.composeCast({
+            text: `Just signed up for the $BADTRADERS competition! 🎯
+
+The worst trader wins a share of trading fees. You need 10M+ tokens to compete.
+
+Try it: ${miniappUrl}`,
+            embeds: [
+              miniappUrl, // Embed the miniapp URL
+            ]
+          });
+
+          if (castResult?.cast) {
+            console.log('Cast posted successfully:', castResult.cast.hash);
+          }
+        } catch (castError) {
+          console.error('Error composing cast:', castError);
+          // Don't fail registration if cast fails
+        }
+
+        if (onRegister) {
+          await onRegister();
+        }
+      } else {
+        alert(data.error || 'Registration failed');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      alert('Failed to register. Please try again.');
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  const handleBuyTokens = async () => {
+    try {
+      // Use Farcaster SDK swapToken action
+      const result = await sdk.actions.swapToken({
+        buyToken: 'eip155:8453/erc20:0x0774409Cda69A47f272907fd5D0d80173167BB07'
+      });
+
+      if (result.success) {
+        console.log('Swap initiated:', result.swap);
+      } else {
+        console.error('Swap failed:', result.reason, result.error);
+        // Fallback to warplet deep link
+        const warpletUrl = `warplet://swap?outputToken=eip155:8453/erc20:0x0774409Cda69A47f272907fd5D0d80173167BB07`;
+        if (onBuyMore) {
+          onBuyMore();
+        } else {
+          window.location.href = warpletUrl;
+        }
+      }
+    } catch (error: any) {
+      console.error('Error opening swap:', error);
+      // Fallback to warplet deep link or callback
+      if (onBuyMore) {
+        onBuyMore();
+      }
+    }
+  };
+
   if (!walletAddress) {
     return (
       <Card className="bg-card border-4 border-primary p-8 shadow-[12px_12px_0px_0px_rgba(147,51,234,1)]">
@@ -49,12 +190,40 @@ export default function MyStatus({ walletAddress, balance, isEligible, threshold
                 <p className="text-3xl font-bold text-destructive uppercase">Not Eligible 😭</p>
               )}
             </div>
-            {!isEligible && onBuyMore && (
+            {/* Registration button - only show if eligible */}
+            {isEligible && fid && (
+              <>
+                {/* Show button if not registered, or if we haven't checked yet */}
+                {isRegistered === false || isRegistered === null ? (
+                  <Button
+                    onClick={handleRegister}
+                    disabled={isRegistering || isLoadingRegistration}
+                    className="w-full bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground text-lg py-4 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50"
+                  >
+                    {isRegistering ? 'Signing Up...' : isLoadingRegistration ? 'Checking...' : 'Sign Up for Competition'}
+                  </Button>
+                ) : (
+                  <div className="w-full bg-green-600 text-white text-center py-4 font-bold uppercase border-4 border-green-700 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                    Registered ✓
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Debug info */}
+            {isEligible && !fid && (
+              <div className="w-full text-center py-2 text-xs text-muted-foreground">
+                (FID not available - connect wallet to register)
+              </div>
+            )}
+
+            {/* Buy tokens button - only show if not eligible */}
+            {!isEligible && walletAddress && (
               <Button
-                onClick={onBuyMore}
+                onClick={handleBuyTokens}
                 className="w-full bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground text-lg py-4 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
               >
-                Buy More Tokens
+                Buy Tokens
               </Button>
             )}
           </>
@@ -63,4 +232,3 @@ export default function MyStatus({ walletAddress, balance, isEligible, threshold
     </Card>
   );
 }
-

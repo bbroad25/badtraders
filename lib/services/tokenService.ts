@@ -63,12 +63,12 @@ export async function getBadTradersBalance(walletAddress: string): Promise<numbe
 /**
  * Checks if a wallet has at least the threshold amount of BadTraders tokens
  * @param walletAddress - The Ethereum wallet address to check
- * @param threshold - The minimum token balance required (default: 1,000,000)
+ * @param threshold - The minimum token balance required (default: 10,000,000)
  * @returns Promise<boolean> - True if balance >= threshold
  */
 export async function checkEligibility(
   walletAddress: string,
-  threshold: number = 1_000_000
+  threshold: number = 10_000_000
 ): Promise<boolean> {
   const balance = await getBadTradersBalance(walletAddress);
   return balance >= threshold;

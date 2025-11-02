@@ -1,17 +1,17 @@
 "use client"
 
-import { useState, useCallback, useEffect } from 'react';
-import { sdk } from '@farcaster/miniapp-sdk';
-import { Button } from '@/components/ui/button';
-import Header from '@/components/leaderboard/Header';
 import ErrorMessage from '@/components/leaderboard/ErrorMessage';
+import Header from '@/components/leaderboard/Header';
 import Leaderboard from '@/components/leaderboard/Leaderboard';
-import MyStatus from '@/components/leaderboard/MyStatus';
 import MemeOfTheWeek from '@/components/leaderboard/MemeOfTheWeek';
 import MintNFT from '@/components/leaderboard/MintNFT';
+import MyStatus from '@/components/leaderboard/MyStatus';
+import { Button } from '@/components/ui/button';
 import { LeaderboardEntry } from '@/types/leaderboard';
+import { sdk } from '@farcaster/miniapp-sdk';
+import { useCallback, useEffect, useState } from 'react';
 
-const ELIGIBILITY_THRESHOLD = 1_000_000;
+const ELIGIBILITY_THRESHOLD = 10_000_000;
 const BADTRADERS_CONTRACT = '0x0774409Cda69A47f272907fd5D0d80173167BB07';
 
 export default function LeaderboardPage() {
@@ -189,17 +189,7 @@ export default function LeaderboardPage() {
     }
   }, [loadTokenBalance]);
 
-  const handleBuyMore = useCallback(() => {
-    // Open Uniswap or another DEX to buy BadTraders token
-    const uniswapUrl = `https://app.uniswap.org/#/tokens/ethereum/${BADTRADERS_CONTRACT}`;
-    sdk.actions.openUrl(uniswapUrl).catch((err) => {
-      console.error('Error opening Uniswap:', err);
-      // Fallback to window.open if SDK doesn't work
-      if (typeof window !== 'undefined') {
-        window.open(uniswapUrl, '_blank');
-      }
-    });
-  }, []);
+  // handleBuyMore removed - now handled by MyStatus component with swapToken
 
   // Auto-trigger add app on mount (Farcaster handles the UI via native menu)
   useEffect(() => {
@@ -311,7 +301,7 @@ export default function LeaderboardPage() {
                   isEligible={isEligible}
                   threshold={ELIGIBILITY_THRESHOLD}
                   isLoadingBalance={isLoadingBalance}
-                  onBuyMore={handleBuyMore}
+                  fid={userFid}
                 />
                 <MintNFT
                   hasEnoughTokens={isEligible}

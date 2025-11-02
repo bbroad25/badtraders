@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { sdk } from '@farcaster/miniapp-sdk'
 import MyStatus from '@/components/leaderboard/MyStatus'
 
-const ELIGIBILITY_THRESHOLD = 1_000_000;
+const ELIGIBILITY_THRESHOLD = 10_000_000;
 
 export default function BadTradersLanding() {
   const [copied, setCopied] = useState(false)
@@ -228,14 +228,7 @@ export default function BadTradersLanding() {
                 isEligible={isEligible}
                 threshold={ELIGIBILITY_THRESHOLD}
                 isLoadingBalance={isLoadingBalance}
-                onBuyMore={() => {
-                  const uniswapUrl = `https://app.uniswap.org/#/tokens/ethereum/${contractAddress}`
-                  sdk.actions.openUrl(uniswapUrl).catch(() => {
-                    if (typeof window !== 'undefined') {
-                      window.open(uniswapUrl, '_blank')
-                    }
-                  })
-                }}
+                fid={userFid}
               />
             </div>
 

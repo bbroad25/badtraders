@@ -90,11 +90,21 @@ The BadTraders leaderboard has been integrated into this Next.js application. Th
 - `GET /api/leaderboard` - Fetches the current leaderboard data
 - `POST /api/meme` - Mints an NFT of your losses for $1
 
+### Database Setup
+
+For production (Vercel), you'll need to set up a PostgreSQL database:
+
+1. **Create Vercel Postgres**: Go to your Vercel project → Storage → Create Database → Postgres
+2. **Run migrations**: Use the SQL editor in Vercel or run `migrations/001_create_tables.sql`
+3. **Environment variable**: `DATABASE_URL` is automatically set by Vercel Postgres
+
+For local development, see `README_LOCAL_SETUP.md`. For detailed Vercel setup, see `DATABASE_SETUP.md`.
+
 ### Notes
 
 - The leaderboard data is cached for 1 hour to improve performance
-- Wallet connection is currently simulated - real wallet integration would need to be added
-- NFT minting requires a valid Gemini API key with Imagen access
+- Wallet connection uses Farcaster SDK for authentication
+- Database is automatically configured (PostgreSQL for production, SQLite for local)
 
 ### Farcaster Mini App Configuration
 
