@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect } from "react"
 import sdk from "@farcaster/frame-sdk"
+import "./globals.css" // make sure your Tailwind styles are imported
 
 interface LayoutProps {
   children: ReactNode
@@ -9,7 +10,6 @@ interface LayoutProps {
 
 export default function RootLayout({ children }: LayoutProps) {
   useEffect(() => {
-    // Ensure we only run in the browser
     if (typeof window === "undefined") return
 
     const waitForFrameSDK = async () => {
@@ -36,9 +36,10 @@ export default function RootLayout({ children }: LayoutProps) {
   return (
     <html lang="en">
       <head>
-        <title>Bad Traders</title>
+        <title>$BADTRADERS</title>
       </head>
-      <body className="bg-background text-foreground">
+      <body className="min-h-screen bg-background text-foreground">
+        {/* Keep your original layout styling here */}
         {children}
       </body>
     </html>
