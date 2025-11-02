@@ -8,8 +8,8 @@
     "splashImageUrl": "https://badtraders.vercel.app/splash.png",
     "splashBackgroundColor": "#8A63D2",
     "webhookUrl": "https://badtraders.vercel.app/api/webhook",
-    "subtitle": "Trade Badly with Friends!",
-    "description": "We are the Bad Traders Community. We cheer each others' poor moves and hold competitions to see the worst traders among us!",
+    "subtitle": "Bad Traders",
+    "description": "We trade bad but we fun good",
     "primaryCategory": "social"
   },
   "accountAssociation": {
