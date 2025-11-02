@@ -25,19 +25,21 @@ export const metadata: Metadata = {
     "fc:frame": "vNext",
     "fc:miniapp": JSON.stringify({
       version: "1",
-      title: "$BADTRADERS",
-      description: "For traders who can't trade. The official meme coin for Farcaster's worst traders.",
+      title: "$BADTRADERS Leaderboard",
+      description: "Track the biggest weekly losses. The $BadTrader competition leaderboard.",
       imageUrl: "https://badtraders.vercel.app/og-image.jpg",
       button: {
-        title: "Open $BADTRADERS",
+        title: "Open Leaderboard",
         action: { type: "launch" },
       },
+      homeUrl: "https://badtraders.vercel.app",
+      postUrl: "https://badtraders.vercel.app/api/frame",
     }),
-    // Optional Farcaster frame fallback
+    // Farcaster frame fallback
     "fc:frame:image": "https://badtraders.vercel.app/og-image.jpg",
-    "fc:frame:button:1": "Open $BADTRADERS",
+    "fc:frame:button:1": "Open Leaderboard",
     "fc:frame:button:1:action": "link",
-    "fc:frame:button:1:target": "https://badtraders.vercel.app",
+    "fc:frame:button:1:target": "https://badtraders.vercel.app/leaderboard",
   },
 }
 
@@ -59,13 +61,15 @@ export default function RootLayout({
           property="fc:miniapp"
           content={JSON.stringify({
             version: "1",
-            title: "$BADTRADERS",
-            description: "For traders who can't trade. The official meme coin for Farcaster's worst traders.",
+            title: "$BADTRADERS Leaderboard",
+            description: "Track the biggest weekly losses. The $BadTrader competition leaderboard.",
             imageUrl: "https://badtraders.vercel.app/og-image.jpg",
             button: {
-              title: "Open $BADTRADERS",
+              title: "Open Leaderboard",
               action: { type: "launch" },
             },
+            homeUrl: "https://badtraders.vercel.app",
+            postUrl: "https://badtraders.vercel.app/api/frame",
           })}
         />
       </head>

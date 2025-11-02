@@ -1,0 +1,18 @@
+{
+  "accountAssociation": {
+    "type": "account_uri",
+    "account": "eip155:1:0x0774409Cda69A47f272907fd5D0d80173167BB07"
+  },
+  "frame": {
+    "version": "vNext",
+    "imageUrl": "https://badtraders.vercel.app/og-image.jpg",
+    "button": {
+      "title": "Open Leaderboard",
+      "action": {
+        "type": "link",
+        "target": "https://badtraders.vercel.app/leaderboard"
+      }
+    }
+  }
+}
+

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
@@ -72,13 +73,22 @@ export default function BadTradersLanding() {
               }
             </p>
 
-            <div className="pt-8">
+            <div className="pt-8 flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Button
                 size="lg"
                 className="bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground text-xl px-12 py-8 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
               >
                 {"WE'RE NGMI 😭"}
               </Button>
+              <Link href="/leaderboard">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground text-xl px-12 py-8 font-bold uppercase border-4 border-primary shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  VIEW LEADERBOARD 📊
+                </Button>
+              </Link>
             </div>
           </div>
         </section>
