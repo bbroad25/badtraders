@@ -3,15 +3,13 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { sdk } from "@farcaster/miniapp-sdk" // official mini app SDK
 
 export default function BadTradersLanding() {
   const [copied, setCopied] = useState(false)
-  const [isFrame, setIsFrame] = useState(false)
-  const [readyCalled, setReadyCalled] = useState(false)
+  const [sdkReady, setSdkReady] = useState(false)
   const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
-  // --- Poll for Frame and call sdk.actions.ready() ---
+  // --- Initialize Farcaster SDK ---
   useEffect(() => {
     if (typeof window === "undefined") return
 
@@ -19,29 +17,24 @@ export default function BadTradersLanding() {
     const maxAttempts = 50
     const interval = 100
 
-    const pollFrame = () => {
-      const timer = setInterval(async () => {
-        attempts++
-        if (window.frame?.sdk) {
-          clearInterval(timer)
-          setIsFrame(true)
-          try {
-            console.log("[MiniApp] Calling sdk.actions.ready()")
-            await sdk.actions.ready()
-            console.log("[MiniApp] SDK ready!")
-          } catch (err) {
-            console.error("[MiniApp] Error calling sdk.actions.ready():", err)
-          }
-          setReadyCalled(true)
-        } else if (attempts >= maxAttempts) {
-          clearInterval(timer)
-          console.warn("[MiniApp] frame.sdk not found after polling")
-          setReadyCalled(true) // fallback to render anyway
+    const timer = setInterval(async () => {
+      attempts++
+      if (window.frame?.sdk) {
+        clearInterval(timer)
+        try {
+          console.log("[MiniApp] Calling sdk.actions.ready()")
+          await window.frame.sdk.actions.ready()
+          console.log("[MiniApp] SDK ready!")
+        } catch (err) {
+          console.error("[MiniApp] Error calling ready():", err)
         }
-      }, interval)
-    }
-
-    pollFrame()
+        setSdkReady(true)
+      } else if (attempts >= maxAttempts) {
+        clearInterval(timer)
+        console.warn("[MiniApp] frame.sdk not found after polling")
+        setSdkReady(true) // fallback to render anyway
+      }
+    }, interval)
   }, [])
 
   // --- Clipboard Copy ---
@@ -51,8 +44,8 @@ export default function BadTradersLanding() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // --- Show fallback while inside Frame and before ready() called ---
-  if (isFrame && !readyCalled) {
+  // --- Show fallback until SDK is ready (only inside Frame) ---
+  if (typeof window !== "undefined" && window.frame?.sdk && !sdkReady) {
     return (
       <div className="min-h-screen flex items-center justify-center text-6xl">
         😂
@@ -60,7 +53,7 @@ export default function BadTradersLanding() {
     )
   }
 
-  // --- Main Landing Page UI ---
+  // --- Main UI ---
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Floating emojis */}
