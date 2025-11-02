@@ -1,41 +1,26 @@
-import "./globals.css";
-import type { Metadata } from "next";
+import "./globals.css"
+import Script from "next/script"
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "$BADTRADERS",
-  description: "A leaderboard of crypto’s worst-performing traders. Don’t be that guy.",
-  openGraph: {
-    title: "$BADTRADERS",
-    description: "A leaderboard of crypto’s worst-performing traders. Don’t be that guy.",
-    url: "https://your-site-url.com",
-    siteName: "$BADTRADERS",
-    images: [
-      {
-        url: "https://your-site-url.com/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "$BADTRADERS Open Graph Image",
-      },
-    ],
-    locale: "en_US",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "$BADTRADERS",
-    description: "A leaderboard of crypto’s worst-performing traders. Don’t be that guy.",
-    images: ["https://your-site-url.com/og-image.png"],
-  },
-};
+  description: "The official meme coin for Farcaster’s worst traders.",
+}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
     <html lang="en">
+      <head>
+        {/* Farcaster Frame SDK */}
+        <Script
+          src="https://unpkg.com/@farcaster/frame-sdk@0.1.1/dist/frame-sdk.umd.js"
+          strategy="beforeInteractive"
+        />
+      </head>
       <body>{children}</body>
     </html>
-  );
+  )
 }
