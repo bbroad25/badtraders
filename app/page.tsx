@@ -9,7 +9,7 @@ export default function BadTradersLanding() {
 
   const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
-  // --- Call SDK ready() if in mini app ---
+  // --- Call SDK ready() if inside Farcaster mini app ---
   useEffect(() => {
     if (typeof window !== "undefined" && window.frame?.sdk) {
       window.frame.sdk.actions.ready()
