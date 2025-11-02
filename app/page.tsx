@@ -8,42 +8,41 @@ export default function BadTradersLanding() {
   const [copied, setCopied] = useState(false)
   const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
-  // --- Initialize Farcaster SDK ---
+  // --- Initialize Farcaster SDK with retries ---
   useEffect(() => {
     const initFarcasterSDK = async () => {
-      if (typeof window === "undefined") return
+      if (typeof window === "undefined") return;
 
       const timeout = setTimeout(() => {
-        console.warn("[MiniApp] SDK load timeout – continuing without frame.sdk")
-      }, 5000)
+        console.warn("[MiniApp] SDK load timeout – continuing without frame.sdk");
+      }, 5000);
 
       try {
-        let attempts = 0
+        let attempts = 0;
         while (!window.frame?.sdk && attempts < 50) {
-          await new Promise((resolve) => setTimeout(resolve, 100))
-          attempts++
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          attempts++;
         }
 
         if (window.frame?.sdk) {
-          console.log("[MiniApp] frame.sdk found – initializing ready()")
-          await window.frame.sdk.actions.ready()
-          console.log("[MiniApp] Farcaster Frame SDK ready")
+          console.log("[MiniApp] frame.sdk found – initializing ready()");
+          await window.frame.sdk.actions.ready();
+          console.log("[MiniApp] Farcaster Frame SDK ready");
 
-          // Optional: debug context
-          const context = await window.frame.sdk.context
-          console.log("[MiniApp] SDK context:", context)
+          const context = await window.frame.sdk.context;
+          console.log("[MiniApp] SDK context:", context);
         } else {
-          console.warn("[MiniApp] frame.sdk not available after waiting")
+          console.warn("[MiniApp] frame.sdk not available after waiting");
         }
       } catch (err) {
-        console.error("[MiniApp] Error during sdk.actions.ready():", err)
+        console.error("[MiniApp] Error during sdk.actions.ready():", err);
       } finally {
-        clearTimeout(timeout)
+        clearTimeout(timeout);
       }
-    }
+    };
 
-    initFarcasterSDK()
-  }, [])
+    initFarcasterSDK();
+  }, []);
 
   // --- Clipboard Copy ---
   const copyToClipboard = () => {
@@ -160,4 +159,19 @@ export default function BadTradersLanding() {
                   {copied ? "✓ COPIED (BAD DECISION)" : "COPY CONTRACT 😂"}
                 </Button>
 
-                <p className
+                <p className="text-sm text-center text-muted-foreground uppercase pt-4">
+                  DISCLAIMER: THIS IS A MEME COIN. YOU WILL PROBABLY LOSE MONEY. BUT YOU WERE GOING TO ANYWAY.
+                </p>
+              </div>
+            </Card>
+
+            <div className="text-center space-y-4 pt-8">
+              <p className="text-3xl">😂😭😂😭😂</p>
+              <p className="text-xl font-bold uppercase text-primary">WELCOME TO THE CLUB</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  )
+}
