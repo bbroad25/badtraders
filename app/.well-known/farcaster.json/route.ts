@@ -11,7 +11,7 @@ export async function GET() {
       splashBackgroundColor: "#000000",
       description: "The official meme coin for Farcaster's worst traders. Bull market? Not for us.",
       tagline: "For Traders Who Can't Trade",
-      ogTitle: BADTRADERS - For Traders Who Can't Trade",
+      ogTitle: BADTRADERS For Traders Who Can't Trade",
       ogDescription: "The official meme coin for Farcaster's worst traders. Bull market? Not for us.",
       ogImageUrl: "https://badtraders.vercel.app/og-image.jpg",
     },
