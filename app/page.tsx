@@ -1,44 +1,178 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { sdk } from '@farcaster/miniapp-sdk'
+import MyStatus from '@/components/leaderboard/MyStatus'
+
+const ELIGIBILITY_THRESHOLD = 1_000_000;
 
 export default function BadTradersLanding() {
   const [copied, setCopied] = useState(false)
-
+  const [walletAddress, setWalletAddress] = useState<string | null>(null)
+  const [userFid, setUserFid] = useState<number | null>(null)
+  const [userBalance, setUserBalance] = useState<number>(0)
+  const [isEligible, setIsEligible] = useState<boolean>(false)
+  const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false)
   const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
-  // --- Mini App ready logic ---
-  useEffect(() => {
-    let attempts = 0
-    const maxAttempts = 50
-    const interval = 100 // ms
+  // SDK initialization is now handled by FarcasterSDKInit component in layout
 
-    const checkFrame = () => {
-      if (typeof window === "undefined") return
+  const loadTokenBalance = useCallback(async (fid: number | null, address: string | null = null) => {
+    setIsLoadingBalance(true)
+    try {
+      // Prefer FID-based lookup via Neynar API
+      const url = fid
+        ? `/api/token-balance?fid=${fid}`
+        : address
+          ? `/api/token-balance?address=${address}`
+          : null
 
-      if (window.frame?.sdk) {
-        console.log("[MiniApp] frame.sdk found, calling ready()")
-        window.frame.sdk.actions
-          .ready()
-          .then(() => {
-            console.log("[MiniApp] sdk.actions.ready() succeeded")
-          })
-          .catch((err) => {
-            console.error("[MiniApp] sdk.actions.ready() error:", err)
-          })
-      } else {
-        attempts++
-        if (attempts < maxAttempts) {
-          setTimeout(checkFrame, interval)
-        } else {
-          console.warn("[MiniApp] frame.sdk not found after max attempts")
+      if (!url) {
+        setUserBalance(0)
+        setIsEligible(false)
+        return
+      }
+
+      const response = await fetch(url)
+      if (!response.ok) {
+        // API failed - use client-side contract query instead
+        if (address) {
+          console.warn('API failed, using client-side contract query')
+          try {
+            const { ethers } = await import('ethers')
+            // Use JsonRpcProvider for direct contract queries (doesn't need wallet connection)
+            const provider = new ethers.JsonRpcProvider('https://eth.llamarpc.com')
+            const tokenAddress = '0x0774409Cda69A47f272907fd5D0d80173167BB07'
+            const tokenAbi = [
+              'function balanceOf(address owner) view returns (uint256)',
+              'function decimals() view returns (uint8)'
+            ]
+            const tokenContract = new ethers.Contract(tokenAddress, tokenAbi, provider)
+            const balance = await tokenContract.balanceOf(address)
+            const decimals = await tokenContract.decimals().catch(() => 18)
+            const balanceFormatted = parseFloat(ethers.formatUnits(balance, decimals))
+            setUserBalance(balanceFormatted)
+            setIsEligible(balanceFormatted >= ELIGIBILITY_THRESHOLD)
+            return
+          } catch (fallbackErr) {
+            console.warn('Client-side contract query failed:', fallbackErr)
+            // Gracefully continue with zero balance
+          }
         }
+        // No address available - set to zero gracefully
+        setUserBalance(0)
+        setIsEligible(false)
+        return
+      }
+      const data = await response.json()
+      const balance = data.balance || 0
+      setUserBalance(balance)
+      // Calculate eligibility client-side (just balance >= threshold)
+      setIsEligible(balance >= ELIGIBILITY_THRESHOLD)
+      // Update wallet address from response if provided
+      if (data.address && !walletAddress) {
+        setWalletAddress(data.address)
+      }
+    } catch (err) {
+      // Graceful error handling - don't throw, just log and set defaults
+      console.warn('Error loading token balance (gracefully handled):', err)
+      setUserBalance(0)
+      setIsEligible(false)
+    } finally {
+      setIsLoadingBalance(false)
+    }
+  }, [walletAddress])
+
+  // Get user context from Farcaster SDK
+  useEffect(() => {
+    const getUserContext = async () => {
+      try {
+        const context = await sdk.context
+
+        if (context?.user?.fid) {
+          const fid = context.user.fid
+          setUserFid(fid)
+
+          // Get wallet address first - we need it for client-side contract queries
+          const ethProvider = await sdk.wallet.getEthereumProvider()
+          if (ethProvider) {
+            try {
+              const accounts = await ethProvider.request({ method: 'eth_accounts' })
+              if (accounts && accounts[0]) {
+                const address = accounts[0]
+                setWalletAddress(address)
+                // Try API with FID first, but pass address for client-side fallback
+                await loadTokenBalance(fid, address)
+                return
+              }
+            } catch (e) {
+              console.log('Could not get wallet address:', e)
+            }
+          }
+
+          // No address yet - try API with just FID (API may return address from Neynar)
+          await loadTokenBalance(fid, null)
+        }
+      } catch (err) {
+        console.log('Farcaster context not available (normal if not in Farcaster client)', err)
       }
     }
 
-    checkFrame()
+    getUserContext()
+  }, [loadTokenBalance])
+
+  const handleConnectWallet = useCallback(async () => {
+    try {
+      // First try to get FID from context
+      const context = await sdk.context
+      if (context?.user?.fid) {
+        const fid = context.user.fid
+        setUserFid(fid)
+        await loadTokenBalance(fid)
+      }
+
+      // Also get wallet address for display
+      const ethProvider = await sdk.wallet.getEthereumProvider()
+      if (ethProvider) {
+        try {
+          const accounts = await ethProvider.request({ method: 'eth_requestAccounts' })
+          if (accounts && accounts[0]) {
+            setWalletAddress(accounts[0])
+            // If no FID available, fallback to address-based lookup
+            if (!context?.user?.fid) {
+              await loadTokenBalance(null, accounts[0])
+            }
+          }
+        } catch (e) {
+          console.log('Could not get wallet address:', e)
+        }
+      } else {
+        alert('Ethereum provider not available. Make sure you\'re using Farcaster client.')
+      }
+    } catch (err) {
+      console.error('Error connecting wallet:', err)
+      alert('Failed to connect wallet. Please try again.')
+    }
+  }, [loadTokenBalance])
+
+  // Auto-trigger add app on mount (Farcaster handles the UI)
+  useEffect(() => {
+    const triggerAddApp = async () => {
+      try {
+        await sdk.actions.addMiniApp()
+      } catch (err: any) {
+        // User might have already added or rejected - that's fine
+        if (err?.name !== 'AddMiniApp.RejectedByUser') {
+          console.log('Add app status:', err?.message || 'Already added or not available')
+        }
+      }
+    }
+    // Small delay to ensure SDK is ready
+    const timer = setTimeout(triggerAddApp, 1000)
+    return () => clearTimeout(timer)
   }, [])
 
   const copyToClipboard = () => {
@@ -51,24 +185,77 @@ export default function BadTradersLanding() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Floating emojis */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-[10%] left-[5%] text-6xl opacity-20">😂</div>
-        <div className="absolute top-[20%] right-[10%] text-5xl opacity-15">😭</div>
-        <div className="absolute top-[40%] left-[15%] text-7xl opacity-10">😂</div>
-        <div className="absolute top-[60%] right-[20%] text-6xl opacity-20">😭</div>
-        <div className="absolute top-[80%] left-[25%] text-5xl opacity-15">😂</div>
-        <div className="absolute top-[30%] right-[5%] text-8xl opacity-10">😭</div>
-        <div className="absolute top-[70%] right-[40%] text-6xl opacity-15">😂</div>
-        <div className="absolute top-[15%] left-[40%] text-5xl opacity-20">😭</div>
+        <div className="absolute top-[10%] left-[5%] text-6xl opacity-20 emoji-float-1">😂</div>
+        <div className="absolute top-[20%] right-[10%] text-5xl opacity-15 emoji-float-2">😭</div>
+        <div className="absolute top-[40%] left-[15%] text-7xl opacity-10 emoji-float-3">😂</div>
+        <div className="absolute top-[60%] right-[20%] text-6xl opacity-20 emoji-float-1">😭</div>
+        <div className="absolute top-[80%] left-[25%] text-5xl opacity-15 emoji-float-2">😂</div>
+        <div className="absolute top-[30%] right-[5%] text-8xl opacity-10 emoji-float-3">😭</div>
+        <div className="absolute top-[70%] right-[40%] text-6xl opacity-15 emoji-float-1">😂</div>
+        <div className="absolute top-[15%] left-[40%] text-5xl opacity-20 emoji-float-2">😭</div>
       </div>
 
       <div className="relative z-10">
         {/* Hero Section */}
-        <section className="min-h-screen flex flex-col items-center justify-center px-4 border-b-4 border-primary">
-          <h1 className="text-7xl md:text-9xl font-bold text-primary uppercase tracking-tighter">$BADTRADERS</h1>
-          <div className="flex items-center justify-center gap-4 text-4xl md:text-6xl mt-4">
-            <span>😂</span>
-            <span>😭</span>
-            <span>😂</span>
+        <section className="min-h-screen flex flex-col items-center justify-center px-4 py-12 border-b-4 border-primary">
+          <div className="max-w-5xl w-full text-center space-y-8">
+            <div className="space-y-4">
+              <h1 className="text-7xl md:text-9xl font-bold text-primary uppercase tracking-tighter text-balance">
+                $BADTRADERS
+              </h1>
+              <div className="flex items-center justify-center gap-4 text-4xl md:text-6xl">
+                <span>😂</span>
+                <span>😭</span>
+                <span>😂</span>
+              </div>
+            </div>
+
+            <p className="text-2xl md:text-4xl font-bold uppercase tracking-tight text-balance">
+              {"FOR TRADERS WHO CAN'T TRADE"}
+            </p>
+
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+              {
+                "BULL MARKET? EVERYONE'S MAKING MONEY? NOT US. WE'RE THE FARCASTER USERS WHO SOMEHOW LOSE MONEY WHEN THE CHARTS GO UP."
+              }
+            </p>
+
+            {/* My Status Card - shown prominently on main page */}
+            <div className="max-w-md mx-auto pt-8">
+              <MyStatus
+                walletAddress={walletAddress}
+                balance={userBalance}
+                isEligible={isEligible}
+                threshold={ELIGIBILITY_THRESHOLD}
+                isLoadingBalance={isLoadingBalance}
+                onBuyMore={() => {
+                  const uniswapUrl = `https://app.uniswap.org/#/tokens/ethereum/${contractAddress}`
+                  sdk.actions.openUrl(uniswapUrl).catch(() => {
+                    if (typeof window !== 'undefined') {
+                      window.open(uniswapUrl, '_blank')
+                    }
+                  })
+                }}
+              />
+            </div>
+
+            <div className="pt-8 flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Button
+                size="lg"
+                className="bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground text-xl px-12 py-8 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+              >
+                {"WE'RE NGMI 😭"}
+              </Button>
+              <Link href="/leaderboard">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground text-xl px-12 py-8 font-bold uppercase border-4 border-primary shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  VIEW LEADERBOARD 📊
+                </Button>
+              </Link>
+            </div>
           </div>
           <p className="text-2xl md:text-4xl font-bold uppercase tracking-tight mt-4">
             FOR TRADERS WHO CAN'T TRADE
@@ -139,3 +326,4 @@ export default function BadTradersLanding() {
     </div>
   )
 }
+
