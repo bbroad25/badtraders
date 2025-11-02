@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
@@ -9,15 +9,35 @@ export default function BadTradersLanding() {
 
   const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
-  // --- Call SDK ready() if inside Farcaster mini app ---
+  // --- Mini App SDK ready call & debug logs ---
   useEffect(() => {
-    if (typeof window !== "undefined" && window.frame?.sdk) {
-      window.frame.sdk.actions.ready()
-        .then(() => console.log("[MiniApp] SDK ready!"))
-        .catch((err) => console.error("[MiniApp] SDK ready error:", err))
+    if (typeof window === "undefined") {
+      console.log("[MiniApp] window is undefined")
+      return
+    }
+
+    if (window.frame === undefined) {
+      console.log("[MiniApp] window.frame is undefined (not in mini app yet)")
+    } else {
+      console.log("[MiniApp] window.frame is defined")
+    }
+
+    if (window.frame?.sdk) {
+      console.log("[MiniApp] frame.sdk exists, calling ready()")
+      window.frame.sdk.actions
+        .ready()
+        .then(() => {
+          console.log("[MiniApp] sdk.actions.ready() succeeded")
+        })
+        .catch((err) => {
+          console.error("[MiniApp] sdk.actions.ready() error:", err)
+        })
+    } else {
+      console.warn("[MiniApp] no frame.sdk found")
     }
   }, [])
 
+  // --- Clipboard Copy ---
   const copyToClipboard = () => {
     navigator.clipboard.writeText(contractAddress)
     setCopied(true)
@@ -33,6 +53,9 @@ export default function BadTradersLanding() {
         <div className="absolute top-[40%] left-[15%] text-7xl opacity-10">😂</div>
         <div className="absolute top-[60%] right-[20%] text-6xl opacity-20">😭</div>
         <div className="absolute top-[80%] left-[25%] text-5xl opacity-15">😂</div>
+        <div className="absolute top-[30%] right-[5%] text-8xl opacity-10">😭</div>
+        <div className="absolute top-[70%] right-[40%] text-6xl opacity-15">😂</div>
+        <div className="absolute top-[15%] left-[40%] text-5xl opacity-20">😭</div>
       </div>
 
       <div className="relative z-10">
