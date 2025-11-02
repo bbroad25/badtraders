@@ -9,12 +9,12 @@ export default function BadTradersLanding() {
 
   const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
-  // Optional: run code if mini app SDK exists
+  // --- Call SDK ready() if in mini app ---
   useEffect(() => {
     if (typeof window !== "undefined" && window.frame?.sdk) {
       window.frame.sdk.actions.ready()
         .then(() => console.log("[MiniApp] SDK ready!"))
-        .catch(console.error)
+        .catch((err) => console.error("[MiniApp] SDK ready error:", err))
     }
   }, [])
 
@@ -36,10 +36,10 @@ export default function BadTradersLanding() {
       </div>
 
       <div className="relative z-10">
-        {/* Hero */}
+        {/* Hero Section */}
         <section className="min-h-screen flex flex-col items-center justify-center px-4 border-b-4 border-primary">
           <h1 className="text-7xl md:text-9xl font-bold text-primary uppercase tracking-tighter">$BADTRADERS</h1>
-          <div className="flex items-center justify-center gap-4 text-4xl md:text-6xl">
+          <div className="flex items-center justify-center gap-4 text-4xl md:text-6xl mt-4">
             <span>😂</span>
             <span>😭</span>
             <span>😂</span>
@@ -47,12 +47,49 @@ export default function BadTradersLanding() {
           <p className="text-2xl md:text-4xl font-bold uppercase tracking-tight mt-4">
             FOR TRADERS WHO CAN'T TRADE
           </p>
+          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mt-4">
+            BULL MARKET? EVERYONE'S MAKING MONEY? NOT US. WE'RE THE FARCASTER USERS WHO SOMEHOW LOSE MONEY WHEN THE CHARTS GO UP.
+          </p>
+
           <Button className="mt-8 bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground text-xl px-12 py-8 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             WE'RE NGMI 😭
           </Button>
         </section>
 
-        {/* Contract */}
+        {/* Manifesto Section */}
+        <section className="min-h-screen flex flex-col items-center justify-center px-4 py-20 border-b-4 border-primary">
+          <div className="max-w-4xl w-full space-y-12">
+            <h2 className="text-5xl md:text-7xl font-bold text-primary uppercase text-center">THE MANIFESTO 😂</h2>
+
+            <div className="grid gap-6">
+              <Card className="bg-card border-4 border-primary p-8 shadow-[12px_12px_0px_0px_rgba(147,51,234,1)]">
+                <h3 className="text-2xl md:text-3xl font-bold mb-4 uppercase">WHO WE ARE</h3>
+                <p className="text-lg leading-relaxed">
+                  WE'RE THE FARCASTER USERS WHO BUY HIGH AND SELL LOW. WE PANIC SELL AT THE BOTTOM. WE FOMO INTO TOPS. WE'RE THE LIQUIDITY FOR EVERYONE ELSE'S GAINS.
+                </p>
+              </Card>
+
+              <Card className="bg-card border-4 border-primary p-8 shadow-[12px_12px_0px_0px_rgba(147,51,234,1)]">
+                <h3 className="text-2xl md:text-3xl font-bold mb-4 uppercase">OUR TRACK RECORD 😭</h3>
+                <ul className="text-lg space-y-3 leading-relaxed">
+                  <li>• BOUGHT THE TOP OF EVERY MEMECOIN</li>
+                  <li>• SOLD ETH AT $1800 (IT'S NOW $3000+)</li>
+                  <li>• SOMEHOW LOST MONEY IN A BULL MARKET</li>
+                  <li>• TRUSTED THAT ONE GUY IN THE TELEGRAM</li>
+                </ul>
+              </Card>
+
+              <Card className="bg-card border-4 border-primary p-8 shadow-[12px_12px_0px_0px_rgba(147,51,234,1)]">
+                <h3 className="text-2xl md:text-3xl font-bold mb-4 uppercase">WHY $BADTRADERS? 😂</h3>
+                <p className="text-lg leading-relaxed">
+                  IF YOU CAN'T BEAT THE MARKET, JOIN THE LOSERS. THIS IS THE COIN FOR EVERYONE WHO KNOWS THEY'RE TERRIBLE AT TRADING BUT DOES IT ANYWAY. AT LEAST WE'RE HONEST ABOUT IT.
+                </p>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* Contract Section */}
         <section className="min-h-screen flex items-center justify-center px-4 py-20">
           <div className="max-w-3xl w-full space-y-6">
             <h2 className="text-5xl md:text-7xl font-bold text-primary uppercase text-center">CONTRACT ADDRESS</h2>
