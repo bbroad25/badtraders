@@ -16,7 +16,13 @@ export async function GET() {
       ogImageUrl: "https://badtraders.vercel.app/og-image.jpg",
     },
   }
-
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjcyMTIsInR5cGUiOiJhdXRoIiwia2V5IjoiMHg2QjVGNEViYzZDODUzMjA2RTJlNkMzMTliOWI3YzJGNUY2NGU2ODMxIn0",
+    "payload": "eyJkb21haW4iOiJiYWR0cmFkZXJzLnZlcmNlbC5hcHAifQ",
+    "signature": "scRafgqIzudsFQ6dpceLg4PY94tjZs6KPNfGjSvSK046iOLxDXF0ZC/FDIhAEGBbo1RvtazAsnzcq6/sjsOTmBs="
+  }
+}
   return NextResponse.json(manifest, {
     headers: {
       "Content-Type": "application/json",
