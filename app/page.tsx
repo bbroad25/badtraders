@@ -10,35 +10,41 @@ export default function BadTradersLanding() {
 
   // --- Initialize Farcaster SDK with retries ---
   useEffect(() => {
-    const initFarcasterSDK = async () => {
-      if (typeof window !== "undefined") {
-        const timeout = setTimeout(() => {
-          console.log("[v0] Farcaster SDK timeout - continuing anyway")
-        }, 3000)
+  const initFarcasterSDK = async () => {
+    if (typeof window === "undefined") return;
 
-        try {
-          let attempts = 0
-          while (!window.frame?.sdk && attempts < 30) {
-            await new Promise((resolve) => setTimeout(resolve, 100))
-            attempts++
-          }
+    const timeout = setTimeout(() => {
+      console.warn("[MiniApp] SDK load timeout – continuing without frame.sdk");
+    }, 5000);
 
-          if (window.frame?.sdk) {
-            await window.frame.sdk.actions.ready()
-            console.log("[v0] Farcaster Frame SDK ready")
-          } else {
-            console.log("[v0] Farcaster SDK not available - running in browser mode")
-          }
-        } catch (error) {
-          console.error("[v0] Error initializing Farcaster SDK:", error)
-        } finally {
-          clearTimeout(timeout)
-        }
+    try {
+      let attempts = 0;
+      while (!window.frame?.sdk && attempts < 50) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        attempts++;
       }
-    }
 
-    initFarcasterSDK()
-  }, [])
+      if (window.frame?.sdk) {
+        console.log("[MiniApp] frame.sdk found – initializing ready()");
+        await window.frame.sdk.actions.ready();
+        console.log("[MiniApp] Farcaster Frame SDK ready");
+
+        // Optional: debug context
+        const context = await window.frame.sdk.context;
+        console.log("[MiniApp] SDK context:", context);
+      } else {
+        console.warn("[MiniApp] frame.sdk not available after waiting");
+      }
+    } catch (err) {
+      console.error("[MiniApp] Error during sdk.actions.ready():", err);
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
+  initFarcasterSDK();
+}, []);
+  
 
   // --- Clipboard Copy ---
   const copyToClipboard = () => {
