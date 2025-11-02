@@ -54,8 +54,12 @@ export async function GET(req: NextRequest) {
       ogTitle: "$BADTRADERS - For Traders Who Can't Trade",
       ogDescription: "The official meme coin for Farcaster's worst traders. Bull market? Not for us.",
       ogImageUrl: `${baseUrl}/og-image.jpg`,
-      ...(webhookUrl && { webhookUrl }),
     },
+  }
+
+  // Add webhookUrl conditionally if it exists
+  if (webhookUrl) {
+    manifest.miniapp.webhookUrl = webhookUrl;
   }
 
   return NextResponse.json(manifest, {
