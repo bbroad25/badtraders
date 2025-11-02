@@ -29,5 +29,21 @@
     },
     "homeUrl": "https://badtraders.vercel.app",
     "postUrl": "https://badtraders.vercel.app/api/frame"
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "$BADTRADERS",
+    "subtitle": "Bad Traders",
+    "homeUrl": "https://badtraders.vercel.app",
+    "iconUrl": "https://badtraders.vercel.app/icon.jpg",
+    "imageUrl": "https://badtraders.vercel.app/og-image.jpg",
+    "splashImageUrl": "https://badtraders.vercel.app/badtraders.png",
+    "splashBackgroundColor": "#000000",
+    "description": "The official meme coin for Farcaster's worst traders. Bull market? Not for us.",
+    "tagline": "For Traders Who Can't Trade",
+    "primaryCategory": "social",
+    "ogTitle": "$BADTRADERS - For Traders Who Can't Trade",
+    "ogDescription": "The official meme coin for Farcaster's worst traders. Bull market? Not for us.",
+    "ogImageUrl": "https://badtraders.vercel.app/og-image.jpg"
   }
 }
