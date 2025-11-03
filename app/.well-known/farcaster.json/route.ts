@@ -5,13 +5,14 @@ export async function GET(req: NextRequest) {
   const webhookUrl = process.env.FARCASTER_WEBHOOK_URL;
 
   const manifest: any = {
+    // Updated accountAssociation from your new manifest
     accountAssociation: {
-      header:
-        "eyJmaWQiOjcyMTIsInR5cGUiOiJhdXRoIiwia2V5IjoiMHg2QjVGNEViYzZDODUzMjA2RTJlNkMzMTliOWI3YzJGNUY2NGU2ODMxIn0",
-      payload: "eyJkb21haW4iOiJiYWR0cmFkZXJzLnZlcmNlbC5hcHAifQ",
-      signature:
-        "scRafgqIzudsFQ6dpceLg4PY94tjZs6KPNfGjSvSK046iOLxDXF0ZC/FDIhAEGBbo1RvtazAsnzcq6/sjsOTmBs=",
+      header: "eyJmaWQiOjcyMTIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhBODU1ZmFFNEZmY0M1OUM3N0M3NkRjZmEzYUJmREY3NEEyMzQ0YTE4In0",
+      payload: "eyJkb21haW4iOiJiYWR0cmFkZXJzLnh5eiJ9",
+      signature: "UMNPzKG3f1sr1ZfgCKpuFhgFMhpodHLaIY+wrTTNXfQE8IbyzlXtDqKYSjTcLAMH9sYWOueC7UTvs2t2ViKJRRs=",
     },
+
+    // Keep baseBuilder as-is
     baseBuilder: {
       version: "1",
       title: "$BADTRADERS Leaderboard",
@@ -26,19 +27,21 @@ export async function GET(req: NextRequest) {
       homeUrl: baseUrl,
       postUrl: `${baseUrl}/api/frame`
     },
+
+    // Updated frame from your new manifest
     frame: {
-      version: "vNext",
-      imageUrl: `${baseUrl}/og-image.jpg`,
-      button: {
-        title: "Open Leaderboard",
-        action: {
-          type: "link",
-          target: `${baseUrl}/leaderboard`
-        }
-      },
-      homeUrl: baseUrl,
-      postUrl: `${baseUrl}/api/frame`
+      version: "1",
+      name: "$BADTRADERS",
+      iconUrl: "https://www.badtraders.xyz/icon.png",
+      homeUrl: "https://www.badtraders.xyz",
+      imageUrl: "https://www.badtraders.xyz/image.png",
+      buttonTitle: "Check this out",
+      splashImageUrl: "https://www.badtraders.xyz/splash.png",
+      splashBackgroundColor: "#eeccff",
+      webhookUrl: webhookUrl || "https://www.badtraders.xyz/api/webhook"
     },
+
+    // Keep miniapp as-is, optionally update URLs if needed
     miniapp: {
       version: "1",
       name: "$BADTRADERS",
@@ -55,11 +58,6 @@ export async function GET(req: NextRequest) {
       ogDescription: "The official meme coin for Farcaster's worst traders. Bull market? Not for us.",
       ogImageUrl: `${baseUrl}/og-image.jpg`,
     },
-  }
-
-  // Add webhookUrl conditionally if it exists
-  if (webhookUrl) {
-    manifest.miniapp.webhookUrl = webhookUrl;
   }
 
   return NextResponse.json(manifest, {
