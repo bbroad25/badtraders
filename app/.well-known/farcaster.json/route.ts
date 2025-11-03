@@ -32,11 +32,11 @@ export async function GET(req: NextRequest) {
     frame: {
       version: "1",
       name: "$BADTRADERS",
-      iconUrl: "https://badtraders.xyz/icon.png",
-      homeUrl: "https://badtraders.xyz",
-      imageUrl: "https://badtraders.xyz/image.png",
+      iconUrl: "https://www.badtraders.xyz/icon.png",
+      homeUrl: "https://www.badtraders.xyz",
+      imageUrl: "https://www.badtraders.xyz/image.png",
       buttonTitle: "Check this out",
-      splashImageUrl: "https://badtraders.xyz/splash.png",
+      splashImageUrl: "https://www.badtraders.xyz/splash.png",
       splashBackgroundColor: "#eeccff",
       webhookUrl: webhookUrl || "https://badtraders.xyz/api/webhook"
     },
