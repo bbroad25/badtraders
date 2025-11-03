@@ -1,0 +1,18 @@
+{
+  "accountAssociation": {
+    "domain": "badtraders.xyz"
+  },
+  "baseBuilder": {},
+  "frame": {
+    "version": "vNext",
+    "imageUrl": "https://badtraders.xyz/og-image.jpg",
+    "button": {
+      "action": {
+        "type": "link",
+        "target": "https://badtraders.xyz/leaderboard"
+      },
+      "title": "Open Leaderboard"
+    }
+  }
+}
+
