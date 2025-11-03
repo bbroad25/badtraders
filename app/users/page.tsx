@@ -32,7 +32,9 @@ export default function UsersPage() {
         if (response.ok && data.success) {
           setUsers(data.users || [])
         } else {
-          setError(data.error || 'Failed to load users')
+          const errorMsg = data.error || 'Failed to load users'
+          const hintMsg = data.hint ? `\n\n${data.hint}` : ''
+          setError(`${errorMsg}${hintMsg}`)
         }
       } catch (err) {
         console.error('Error fetching users:', err)

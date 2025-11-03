@@ -14,8 +14,22 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error fetching users:', error);
+
+    // Check if it's a database connection or table missing error
+    const errorMessage = error?.message || 'Unknown error';
+    const isTableMissing = errorMessage.includes('does not exist') || errorMessage.includes('relation');
+    const isConnectionError = errorMessage.includes('DATABASE_URL') || errorMessage.includes('connect');
+
     return NextResponse.json(
-      { error: 'Failed to fetch users', message: error?.message },
+      {
+        error: 'Failed to fetch users',
+        message: errorMessage,
+        hint: isTableMissing
+          ? 'Database tables not created. Run migration: migrations/001_create_tables.sql in Supabase SQL Editor'
+          : isConnectionError
+          ? 'Database connection failed. Check DATABASE_URL environment variable.'
+          : undefined
+      },
       { status: 500 }
     );
   }
