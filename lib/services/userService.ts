@@ -49,7 +49,7 @@ export async function registerUser(
     const existingUser = await getUserByFid(fid);
 
     if (existingUser) {
-      // Update existing user (PostgreSQL)
+      // Update existing user (Supabase)
       const result = await query(
         `UPDATE users
          SET wallet_address = $1,
@@ -65,7 +65,7 @@ export async function registerUser(
 
       return result.rows[0] as User;
     } else {
-      // Create new user (PostgreSQL)
+      // Create new user (Supabase)
       const result = await query(
         `INSERT INTO users (fid, username, wallet_address, eligibility_status, opt_in_status, registered_at, last_active_at, created_at, updated_at)
          VALUES ($1, $2, $3, $4, true, NOW(), NOW(), NOW(), NOW())

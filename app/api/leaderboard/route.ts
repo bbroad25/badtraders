@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
       if (cacheAge < CACHE_TTL) {
         console.log("Serving leaderboard from database cache.");
-        // PostgreSQL JSONB returns as object, no need to parse
+        // Supabase JSONB returns as object, no need to parse
         const leaderboardData = cached.leaderboard_data;
         return NextResponse.json(leaderboardData);
       }
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     console.log("Generating new leaderboard. This may take a moment...");
     const leaderboardData = await generateLeaderboard();
 
-    // Store in database (PostgreSQL - same in dev and production)
+    // Store in database (Supabase - same in dev and production)
     const leaderboardJson = JSON.stringify(leaderboardData);
     await query(
       `INSERT INTO leaderboard_cache (cache_key, leaderboard_data, updated_at)

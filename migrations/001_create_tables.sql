@@ -1,5 +1,5 @@
 -- Migration: Create tables for user registration and payouts
--- Run this in your PostgreSQL database (Vercel Postgres or Supabase)
+-- Run this in your Supabase database (via SQL Editor or psql)
 
 -- Users table: Track registered users
 CREATE TABLE IF NOT EXISTS users (

@@ -9,7 +9,7 @@ import MyStatus from '@/components/leaderboard/MyStatus';
 import { Button } from '@/components/ui/button';
 import { LeaderboardEntry } from '@/types/leaderboard';
 import { sdk } from '@farcaster/miniapp-sdk';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 
 const ELIGIBILITY_THRESHOLD = 1_000_000;
 const BADTRADERS_CONTRACT = '0x0774409Cda69A47f272907fd5D0d80173167BB07';
@@ -25,6 +25,10 @@ export default function LeaderboardPage() {
   const [memeImageUrl, setMemeImageUrl] = useState<string | null>(null);
   const [isGeneratingMeme, setIsGeneratingMeme] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Track initialization to prevent multiple calls
+  const hasInitialized = useRef(false);
+  const providerRef = useRef<any>(null);
 
   const loadTokenBalance = useCallback(async (fid: number | null, address: string | null = null) => {
     setIsLoadingBalance(true);
@@ -92,8 +96,11 @@ export default function LeaderboardPage() {
     }
   }, [walletAddress]);
 
-  // Get user context from Farcaster SDK
+  // Get user context from Farcaster SDK - only run once on mount
   useEffect(() => {
+    // Prevent multiple initializations
+    if (hasInitialized.current) return;
+
     const getUserContext = async () => {
       try {
         // sdk.context is a Promise - need to await it
@@ -104,8 +111,12 @@ export default function LeaderboardPage() {
           const fid = context.user.fid;
           setUserFid(fid);
 
-          // Get wallet address first - we need it for client-side contract queries
-          const ethProvider = await sdk.wallet.getEthereumProvider();
+          // Get wallet address - cache provider to avoid repeated calls
+          if (!providerRef.current) {
+            providerRef.current = await sdk.wallet.getEthereumProvider();
+          }
+
+          const ethProvider = providerRef.current;
           if (ethProvider) {
             try {
               const accounts = await ethProvider.request({ method: 'eth_accounts' });
@@ -114,6 +125,7 @@ export default function LeaderboardPage() {
                 setWalletAddress(address);
                 // Try API with FID first, but pass address for client-side fallback
                 await loadTokenBalance(fid, address);
+                hasInitialized.current = true;
                 return;
               }
             } catch (e) {
@@ -123,6 +135,7 @@ export default function LeaderboardPage() {
 
           // No address yet - try API with just FID (API may return address from Neynar)
           await loadTokenBalance(fid, null);
+          hasInitialized.current = true;
         }
       } catch (err) {
         // Not in Farcaster client or context not available - that's okay
@@ -131,7 +144,8 @@ export default function LeaderboardPage() {
     };
 
     getUserContext();
-  }, [loadTokenBalance]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run once on mount
 
   useEffect(() => {
     const loadLeaderboard = async () => {
@@ -165,9 +179,13 @@ export default function LeaderboardPage() {
         await loadTokenBalance(fid);
       }
 
-      // Also get wallet address for display
-      const ethProvider = await sdk.wallet.getEthereumProvider();
+      // Also get wallet address for display - reuse cached provider if available
+      const ethProvider = providerRef.current || await sdk.wallet.getEthereumProvider();
       if (ethProvider) {
+        // Cache it for future use
+        if (!providerRef.current) {
+          providerRef.current = ethProvider;
+        }
         try {
           const accounts = await ethProvider.request({ method: 'eth_requestAccounts' });
           if (accounts && accounts[0]) {
@@ -191,22 +209,7 @@ export default function LeaderboardPage() {
 
   // handleBuyMore removed - now handled by MyStatus component with swapToken
 
-  // Auto-trigger add app on mount (Farcaster handles the UI via native menu)
-  useEffect(() => {
-    const triggerAddApp = async () => {
-      try {
-        await sdk.actions.addMiniApp();
-      } catch (err: any) {
-        // User might have already added or rejected - that's fine
-        if (err?.name !== 'AddMiniApp.RejectedByUser') {
-          console.log('Add app status:', err?.message || 'Already added or not available');
-        }
-      }
-    };
-    // Small delay to ensure SDK is ready
-    const timer = setTimeout(triggerAddApp, 1000);
-    return () => clearTimeout(timer);
-  }, []);
+  // Remove duplicate addMiniApp call - already handled by FarcasterSDKInit in layout
 
   // Notifications are handled by Farcaster client's native menu
   // No custom UI needed

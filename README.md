@@ -92,47 +92,45 @@ The BadTraders leaderboard has been integrated into this Next.js application. Th
 
 ### Database Setup
 
-**IMPORTANT: The app requires a PostgreSQL database to work.** Without it, user registration and data storage will fail.
+**IMPORTANT: The app requires a Supabase database to work.** Without it, user registration and data storage will fail.
 
-**PostgreSQL** - Same database for dev and production.
+**Supabase** - Same database for dev and production. No local install needed.
 
 #### For Production Deployment (Required for Vercel)
 
-**You MUST set up PostgreSQL in Vercel dashboard before deployment will work:**
+**You MUST set up Supabase database before deployment will work:**
 
 1. Go to your Vercel project dashboard: https://vercel.com
 2. Click on your project → Click **"Storage"** tab in the left sidebar
-3. Click **"Create Database"** → Select **"Postgres"**
-4. Wait for it to create (takes ~30 seconds)
-5. Vercel automatically sets `DATABASE_URL` environment variable for you
-6. **Run the migration** to create tables:
-   - Click **"SQL Editor"** tab in the database page
-   - Copy the contents of `migrations/001_create_tables.sql` from your local machine
+3. Click **"Create Database"** → Select **"Supabase"** (or browse marketplace)
+4. Follow the prompts to connect/create Supabase account
+5. Wait for it to create (takes ~30 seconds)
+6. `DATABASE_URL` is automatically set as environment variable (or add it manually from Supabase dashboard)
+7. **Run the migration** to create tables:
+   - Go to Supabase dashboard → Your Project → **SQL Editor**
+   - Copy contents of `migrations/001_create_tables.sql` from your local machine
    - Paste into SQL Editor and click **"Run"**
-7. **That's it!** Your production app now has a working database
+8. **That's it!** Your production app now has a working database
 
-**See `DATABASE_SETUP.md` for detailed step-by-step instructions with screenshots.**
+**See `DATABASE_SETUP.md` for detailed step-by-step instructions.**
 
 #### For Local Development
 
-1. **Option 1: Use Same Database as Production** (easiest)
-   - Copy the `DATABASE_URL` connection string from Vercel (Storage → Connect tab)
-   - Put it in `.env.local`: `DATABASE_URL=postgresql://...`
-   - No local PostgreSQL install needed!
+**Use the same Supabase database for local dev** (easiest - no install needed):
 
-2. **Option 2: Install PostgreSQL Locally** (separate dev database)
-   - See `README_LOCAL_SETUP.md` for step-by-step instructions
-   - Create database: `psql -U postgres -c "CREATE DATABASE badtraders;"`
-   - Set `DATABASE_URL` in `.env.local`: `DATABASE_URL=postgresql://postgres:password@localhost:5432/badtraders`
-   - Run migration: `psql $DATABASE_URL -f migrations/001_create_tables.sql`
+1. Copy the `DATABASE_URL` connection string from Supabase (Settings → Database → Connection string)
+2. Put it in `.env.local`: `DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres`
+3. Run `npm run dev` - uses the same database as production
 
-Same PostgreSQL, same code, same behavior everywhere.
+**See `README_LOCAL_SETUP.md` for detailed local setup instructions.**
+
+Same Supabase database, same code, same behavior everywhere.
 
 ### Notes
 
 - The leaderboard data is cached for 1 hour to improve performance
 - Wallet connection uses Farcaster SDK for authentication
-- PostgreSQL database - same in dev and production
+- Supabase database - same in dev and production, no local install needed
 
 ### Farcaster Mini App Configuration
 

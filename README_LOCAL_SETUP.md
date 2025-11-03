@@ -1,117 +1,82 @@
 # Local Development Setup
 
-PostgreSQL for local dev - same as production. No install needed if you use Vercel Postgres.
+**Supabase for local dev - same as production.** No local database install needed.
 
-## Option 1: Use Vercel Postgres (Easiest - No Install)
+## Quick Setup (Recommended)
 
-Use the same database as production. No PostgreSQL install needed.
+Use the **same Supabase database** for local development. No PostgreSQL install, no complexity.
 
-1. **Set up Vercel Postgres first** (see `DATABASE_SETUP.md` for dashboard steps)
-2. **Copy the connection string** from Vercel dashboard (Storage → Postgres → Connect tab)
-3. **Put it in `.env.local`**:
-   ```
-   DATABASE_URL=postgresql://username:password@host:port/database?sslmode=require
-   NEYNAR_API_KEY=your_neynar_key_here
-   ALCHEMY_API_KEY=your_alchemy_key_here
-   ```
-4. **Run migration once** (if not already done):
-   ```bash
-   psql "postgresql://username:password@host:port/database?sslmode=require" -f migrations/001_create_tables.sql
-   ```
-5. **Start dev**: `npm run dev`
+### Step 1: Get Your Supabase Connection String
 
-**That's it!** Same database as production, no local install needed.
+1. Go to your Supabase project: https://supabase.com
+2. Click on your project → **Settings** → **Database**
+3. Scroll down to **"Connection string"** section
+4. Copy the **URI** (it looks like: `postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres`)
+5. The password is shown in the same section (or you set it when creating the project)
 
----
-
-## Option 2: Install PostgreSQL Locally
-
-Only if you want a separate local database.
-
-### 1. Install PostgreSQL
-
-1. Go to https://www.postgresql.org/download/
-2. Download PostgreSQL for your operating system (Windows, macOS, or Linux)
-3. Run the installer
-4. During installation:
-   - Remember the password you set for the `postgres` user (you'll need this)
-   - Default port is 5432 (that's fine)
-   - Install everything (default options are good)
-
-### 2. Create the Database
-
-After PostgreSQL is installed:
-
-1. Open your terminal/command prompt
-2. Run this command:
-   ```bash
-   createdb badtraders
-   ```
-
-   If that doesn't work, you might need to add PostgreSQL to your PATH. Try:
-   ```bash
-   psql -U postgres
-   ```
-   Then inside psql:
-   ```sql
-   CREATE DATABASE badtraders;
-   \q
-   ```
-
-### 3. Set Up Environment Variables
+### Step 2: Set Up Environment Variables
 
 Create or edit `.env.local` in the `badtraders` directory:
 
 ```
-DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/badtraders
+DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
 NEYNAR_API_KEY=your_neynar_key_here
 ALCHEMY_API_KEY=your_alchemy_key_here
 ```
 
-**Important**: Replace `YOUR_PASSWORD` with the password you set during PostgreSQL installation.
+**Important**: Replace `[YOUR-PASSWORD]` with your actual Supabase database password (shown in the connection string section).
 
-### 4. Run the Migration
+### Step 3: Run the Migration (If Not Already Done)
 
-This creates all the tables in your database:
+The migration only needs to run once on your Supabase database. If you already ran it for production, skip this step.
 
+**Option A: Using Supabase SQL Editor (Easiest)**
+1. Go to https://supabase.com → Your Project
+2. Click **"SQL Editor"** in the left sidebar
+3. Click **"New query"**
+4. Open `migrations/001_create_tables.sql` from your local machine
+5. Copy all contents and paste into SQL Editor
+6. Click **"Run"** (or press Ctrl+Enter)
+
+**Option B: Using psql (If You Have It)**
 ```bash
-psql $DATABASE_URL -f migrations/001_create_tables.sql
+psql "postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres" -f migrations/001_create_tables.sql
 ```
 
-On Windows PowerShell, you might need:
-```powershell
-$env:DATABASE_URL = "postgresql://postgres:YOUR_PASSWORD@localhost:5432/badtraders"
-psql $env:DATABASE_URL -f migrations/001_create_tables.sql
-```
-
-### 5. Start Development Server
+### Step 4: Start Development Server
 
 ```bash
 npm run dev
 ```
 
-That's it! Your local database is ready and works exactly like production.
+**That's it!** Your local dev now uses the same Supabase database as production. No installs, no configuration, same data everywhere.
+
+## Why This Works
+
+- **Supabase is PostgreSQL** - same SQL, same connection strings
+- **No local install needed** - database lives on Supabase servers
+- **Same database for dev and prod** - consistent behavior, no surprises
+- **Data persists** - database is not affected by Vercel deployments
 
 ## Troubleshooting
 
-**"createdb: command not found"**
-- PostgreSQL might not be in your PATH
-- Try using `psql` directly: `psql -U postgres -c "CREATE DATABASE badtraders;"`
-
-**"connection refused" or "could not connect"**
-- Make sure PostgreSQL is running
-- On Windows: Check Services, find "postgresql" and make sure it's running
-- On macOS: `brew services start postgresql` (if installed via Homebrew)
-- On Linux: `sudo systemctl start postgresql`
+**"Connection refused" or "could not connect"**
+- Double-check your `DATABASE_URL` in `.env.local`
+- Make sure you copied the FULL connection string from Supabase
+- Verify the password is correct (it's shown in Supabase dashboard)
+- Connection string should start with `postgresql://`
 
 **"password authentication failed"**
-- Double-check the password in your `DATABASE_URL`
-- Try connecting with psql to test: `psql -U postgres -d badtraders`
+- The password in your connection string might be URL-encoded
+- Copy the connection string directly from Supabase dashboard
+- Supabase shows the connection string with `[YOUR-PASSWORD]` placeholder - replace it with your actual password
 
-**"psql: command not found"** (using Vercel Postgres)
-- You need psql CLI tool to run migrations
-- Quick install options:
-  - Windows: `winget install PostgreSQL.PostgreSQL` or `choco install postgresql`
-  - macOS: `brew install postgresql`
-  - Linux: `sudo apt install postgresql-client` or `sudo yum install postgresql`
-- Or use Vercel's SQL Editor instead (see `DATABASE_SETUP.md`)
+**"relation does not exist" or "table does not exist"**
+- You need to run the migration first (see Step 3)
+- Tables are created in Supabase database, not locally
+- Once created, they persist for all future dev sessions
+
+**"DATABASE_URL not set"**
+- Make sure `.env.local` exists in the `badtraders` directory (same level as `package.json`)
+- Restart your dev server after changing `.env.local`
+- Check that the file is not named `.env.local.txt` (Windows sometimes adds .txt)

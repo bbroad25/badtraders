@@ -4,15 +4,16 @@ import { Pool } from 'pg';
 let pgPool: Pool | null = null;
 
 /**
- * Get PostgreSQL connection pool
+ * Get Supabase connection pool
  * Works the same way in dev and production - just uses DATABASE_URL
+ * Supabase uses standard PostgreSQL connection strings
  */
-function getPostgresPool(): Pool {
+function getSupabasePool(): Pool {
   if (!pgPool) {
     const connectionString = process.env.DATABASE_URL;
 
     if (!connectionString) {
-      throw new Error('DATABASE_URL environment variable is not set. Use PostgreSQL connection string (e.g., postgresql://user:pass@host/db)');
+      throw new Error('DATABASE_URL environment variable is not set. Use Supabase PostgreSQL connection string (e.g., postgresql://user:pass@host/db)');
     }
 
     pgPool = new Pool({
@@ -34,15 +35,15 @@ function getPostgresPool(): Pool {
 }
 
 /**
- * Execute a query (PostgreSQL only - same in dev and production)
+ * Execute a query (Supabase PostgreSQL - same in dev and production)
  */
 export async function query(text: string, params?: any[]) {
-  const pool = getPostgresPool();
+  const pool = getSupabasePool();
   try {
     const result = await pool.query(text, params);
     return result;
   } catch (error) {
-    console.error('PostgreSQL query error:', error);
+    console.error('Supabase query error:', error);
     throw error;
   }
 }
