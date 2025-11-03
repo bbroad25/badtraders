@@ -11,7 +11,7 @@ import { LeaderboardEntry } from '@/types/leaderboard';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { useCallback, useEffect, useState } from 'react';
 
-const ELIGIBILITY_THRESHOLD = 10_000_000;
+const ELIGIBILITY_THRESHOLD = 1_000_000;
 const BADTRADERS_CONTRACT = '0x0774409Cda69A47f272907fd5D0d80173167BB07';
 
 export default function LeaderboardPage() {

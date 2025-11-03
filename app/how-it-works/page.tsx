@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
-const ELIGIBILITY_THRESHOLD = 10_000_000
+const ELIGIBILITY_THRESHOLD = 1_000_000
 
 export default function HowItWorksPage() {
   return (

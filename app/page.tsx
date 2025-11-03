@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { sdk } from '@farcaster/miniapp-sdk'
 import MyStatus from '@/components/leaderboard/MyStatus'
 
-const ELIGIBILITY_THRESHOLD = 10_000_000;
+const ELIGIBILITY_THRESHOLD = 1_000_000;
 
 export default function BadTradersLanding() {
   const [copied, setCopied] = useState(false)

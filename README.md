@@ -92,19 +92,47 @@ The BadTraders leaderboard has been integrated into this Next.js application. Th
 
 ### Database Setup
 
-For production (Vercel), you'll need to set up a PostgreSQL database:
+**IMPORTANT: The app requires a PostgreSQL database to work.** Without it, user registration and data storage will fail.
 
-1. **Create Vercel Postgres**: Go to your Vercel project → Storage → Create Database → Postgres
-2. **Run migrations**: Use the SQL editor in Vercel or run `migrations/001_create_tables.sql`
-3. **Environment variable**: `DATABASE_URL` is automatically set by Vercel Postgres
+**PostgreSQL** - Same database for dev and production.
 
-For local development, see `README_LOCAL_SETUP.md`. For detailed Vercel setup, see `DATABASE_SETUP.md`.
+#### For Production Deployment (Required for Vercel)
+
+**You MUST set up PostgreSQL in Vercel dashboard before deployment will work:**
+
+1. Go to your Vercel project dashboard: https://vercel.com
+2. Click on your project → Click **"Storage"** tab in the left sidebar
+3. Click **"Create Database"** → Select **"Postgres"**
+4. Wait for it to create (takes ~30 seconds)
+5. Vercel automatically sets `DATABASE_URL` environment variable for you
+6. **Run the migration** to create tables:
+   - Click **"SQL Editor"** tab in the database page
+   - Copy the contents of `migrations/001_create_tables.sql` from your local machine
+   - Paste into SQL Editor and click **"Run"**
+7. **That's it!** Your production app now has a working database
+
+**See `DATABASE_SETUP.md` for detailed step-by-step instructions with screenshots.**
+
+#### For Local Development
+
+1. **Option 1: Use Same Database as Production** (easiest)
+   - Copy the `DATABASE_URL` connection string from Vercel (Storage → Connect tab)
+   - Put it in `.env.local`: `DATABASE_URL=postgresql://...`
+   - No local PostgreSQL install needed!
+
+2. **Option 2: Install PostgreSQL Locally** (separate dev database)
+   - See `README_LOCAL_SETUP.md` for step-by-step instructions
+   - Create database: `psql -U postgres -c "CREATE DATABASE badtraders;"`
+   - Set `DATABASE_URL` in `.env.local`: `DATABASE_URL=postgresql://postgres:password@localhost:5432/badtraders`
+   - Run migration: `psql $DATABASE_URL -f migrations/001_create_tables.sql`
+
+Same PostgreSQL, same code, same behavior everywhere.
 
 ### Notes
 
 - The leaderboard data is cached for 1 hour to improve performance
 - Wallet connection uses Farcaster SDK for authentication
-- Database is automatically configured (PostgreSQL for production, SQLite for local)
+- PostgreSQL database - same in dev and production
 
 ### Farcaster Mini App Configuration
 

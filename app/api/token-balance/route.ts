@@ -3,7 +3,7 @@ import { getBadTradersBalance, checkEligibility } from '@/lib/services/tokenServ
 import { Configuration, NeynarAPIClient } from '@neynar/nodejs-sdk';
 
 const BADTRADERS_TOKEN_ADDRESS = '0x0774409Cda69A47f272907fd5D0d80173167BB07';
-const ELIGIBILITY_THRESHOLD = 10_000_000;
+const ELIGIBILITY_THRESHOLD = 1_000_000;
 
 export async function GET(request: NextRequest) {
   try {

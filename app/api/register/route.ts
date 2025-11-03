@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { registerUser } from '@/lib/services/userService';
 import { getBadTradersBalance } from '@/lib/services/tokenService';
 
-const ELIGIBILITY_THRESHOLD = 10_000_000;
+const ELIGIBILITY_THRESHOLD = 1_000_000;
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     if (!isEligible) {
       return NextResponse.json(
         {
-          error: 'Not eligible. You must hold at least 10,000,000 $BADTRADERS tokens to register.',
+          error: 'Not eligible. You must hold at least 1,000,000 $BADTRADERS tokens to register.',
           balance,
           threshold: ELIGIBILITY_THRESHOLD
         },

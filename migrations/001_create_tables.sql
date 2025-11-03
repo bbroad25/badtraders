@@ -57,3 +57,15 @@ CREATE INDEX IF NOT EXISTS idx_trading_metrics_user_fid ON trading_metrics(user_
 CREATE INDEX IF NOT EXISTS idx_trading_metrics_date ON trading_metrics(date);
 CREATE INDEX IF NOT EXISTS idx_trading_metrics_user_date ON trading_metrics(user_fid, date);
 
+-- Leaderboard cache table: Store leaderboard results persistently
+CREATE TABLE IF NOT EXISTS leaderboard_cache (
+  id SERIAL PRIMARY KEY,
+  cache_key VARCHAR(50) DEFAULT 'default' UNIQUE NOT NULL,
+  leaderboard_data JSONB NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Index for cache lookups
+CREATE INDEX IF NOT EXISTS idx_leaderboard_cache_key ON leaderboard_cache(cache_key);
+

@@ -6,8 +6,7 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
-    "start": "next start",
-    "db:setup": "tsx scripts/setup-db.ts"
+    "start": "next start"
   },
   "dependencies": {
     "@farcaster/miniapp-sdk": "^0.2.1",
