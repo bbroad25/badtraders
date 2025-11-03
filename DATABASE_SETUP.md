@@ -39,25 +39,15 @@ Supabase database for production. One-time setup via Vercel marketplace, then ne
 
 ### Step 4: Run the Migration
 
-You need to create the tables in your database. You have two options:
+**👉 See `DATABASE_MIGRATION_SETUP.md` for the easiest step-by-step guide with copy-paste SQL!**
 
-**Option A: Using Supabase SQL Editor (Easiest)**
-1. Go to https://supabase.com → Your Project
-2. Click **"SQL Editor"** in the left sidebar
-3. Click **"New query"**
-4. Open the file `migrations/001_create_tables.sql` on your local machine
-5. Copy ALL the contents (Ctrl+A, Ctrl+C)
-6. Paste into the SQL Editor in Supabase
-7. Click **"Run"** or press Ctrl+Enter
-8. You should see "Success" or no errors
+Quick version:
+1. Go to https://supabase.com → Your Project → SQL Editor
+2. Copy the SQL from `DATABASE_MIGRATION_SETUP.md` (or `migrations/001_create_tables_simple.sql`)
+3. Paste and click "Run"
+4. Done! ✅
 
-**Option B: Using psql from Your Computer**
-1. Copy the connection string from Supabase (Step 3)
-2. In your terminal, run:
-   ```bash
-   psql "YOUR_CONNECTION_STRING" -f migrations/001_create_tables.sql
-   ```
-   Replace `YOUR_CONNECTION_STRING` with the actual connection string from Supabase
+For detailed instructions, see: **`DATABASE_MIGRATION_SETUP.md`**
 
 ### Step 5: Verify It Works
 
