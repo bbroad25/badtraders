@@ -2,19 +2,19 @@
   "frame": {
     "name": "Bad Traders",
     "version": "1",
-    "iconUrl": "https://badtraders.xyz/icon.jpg",
-    "homeUrl": "https://badtraders.xyz",
-    "imageUrl": "https://badtraders.xyz/og-image.jpg",
-    "splashImageUrl": "https://badtraders.xyz/badtraders.png",
+    "iconUrl": "https://badtraders.vercel.app/icon.png",
+    "homeUrl": "https://badtraders.vercel.app",
+    "imageUrl": "https://badtraders.vercel.app/image.png",
+    "splashImageUrl": "https://badtraders.vercel.app/splash.png",
     "splashBackgroundColor": "#8A63D2",
-    "webhookUrl": "https://badtraders.xyz/api/frame",
+    "webhookUrl": "https://badtraders.vercel.app/api/webhook",
     "subtitle": "Bad Traders",
     "description": "We trade bad but we fun good",
     "primaryCategory": "social"
   },
   "accountAssociation": {
     "header": "eyJmaWQiOjcyMTIsInR5cGUiOiJhdXRoIiwia2V5IjoiMHg2QjVGNEViYzZDODUzMjA2RTJlNkMzMTliOWI3YzJGNUY2NGU2ODMxIn0",
-    "payload": "eyJkb21haW4iOiJiYWR0cmFkZXJzLnh5eiJ9",
-    "signature": "PLACEHOLDER_SIGNATURE_REPLACE_THIS"
+    "payload": "eyJkb21haW4iOiJiYWR0cmFkZXJzLnZlcmNlbC5hcHAifQ",
+    "signature": "scRafgqIzudsFQ6dpceLg4PY94tjZs6KPNfGjSvSK046iOLxDXF0ZC/FDIhAEGBbo1RvtazAsnzcq6/sjsOTmBs="
   }
 }
