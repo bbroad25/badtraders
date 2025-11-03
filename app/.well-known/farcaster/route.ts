@@ -1,40 +1,16 @@
 import { NextResponse } from 'next/server';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
-/**
- * Farcaster Mini App Manifest
- * Served at /.well-known/farcaster
- * This needs to be signed via Base Build's Preview tool with the new domain
- */
 export async function GET() {
-  const manifest = {
-    accountAssociation: {
-      // This will be populated when you sign it via Base Build
-      // For now, returning the structure
-      domain: "badtraders.xyz",
-    },
-    // Base Build specific configuration
-    baseBuilder: {
-      // Will be set when signed
-    },
-    // Frame fallback
-    frame: {
-      version: "vNext",
-      imageUrl: "https://badtraders.xyz/og-image.jpg",
-      button: {
-        action: {
-          type: "link",
-          target: "https://badtraders.xyz/leaderboard",
-        },
-        title: "Open Leaderboard",
-      },
-    },
-  };
+  // Read the manifest from .well-known/farcaster.json
+  const manifestPath = join(process.cwd(), '.well-known', 'farcaster.json');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
 
   return NextResponse.json(manifest, {
     headers: {
-      'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'application/json',
     },
   });
 }
-
