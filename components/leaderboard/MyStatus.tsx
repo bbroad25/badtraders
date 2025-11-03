@@ -89,7 +89,7 @@ export default function MyStatus({
 
         // Compose a cast to share the miniapp and token
         try {
-          const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://badtraders.vercel.app';
+          const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://badtraders.xyz';
           const miniappUrl = baseUrl;
           const tokenAddress = '0x0774409Cda69A47f272907fd5D0d80173167BB07';
 
