@@ -1,20 +1,19 @@
 {
-  "frame": {
-    "name": "Bad Traders",
+  "miniapp": {
     "version": "1",
-    "iconUrl": "https://badtraders.vercel.app/icon.png",
-    "homeUrl": "https://badtraders.vercel.app",
-    "imageUrl": "https://badtraders.vercel.app/image.png",
-    "splashImageUrl": "https://badtraders.vercel.app/splash.png",
+    "name": "Bad Traders",
+    "iconUrl": "https://badtraders.xyz/icon.jpg",
+    "homeUrl": "https://badtraders.xyz",
+    "imageUrl": "https://badtraders.xyz/og-image.jpg",
+    "splashImageUrl": "https://badtraders.xyz/badtraders.png",
     "splashBackgroundColor": "#8A63D2",
-    "webhookUrl": "https://badtraders.vercel.app/api/webhook",
-    "subtitle": "Bad Traders",
-    "description": "We trade bad but we fun good",
+    "tagline": "We trade bad but we fun good",
+    "description": "Track the biggest weekly losses. The $BadTrader competition leaderboard.",
     "primaryCategory": "social"
   },
   "accountAssociation": {
     "header": "eyJmaWQiOjcyMTIsInR5cGUiOiJhdXRoIiwia2V5IjoiMHg2QjVGNEViYzZDODUzMjA2RTJlNkMzMTliOWI3YzJGNUY2NGU2ODMxIn0",
-    "payload": "eyJkb21haW4iOiJiYWR0cmFkZXJzLnZlcmNlbC5hcHAifQ",
+    "payload": "eyJkb21haW4iOiJiYWR0cmFkZXJzLnh5eiJ9",
     "signature": "scRafgqIzudsFQ6dpceLg4PY94tjZs6KPNfGjSvSK046iOLxDXF0ZC/FDIhAEGBbo1RvtazAsnzcq6/sjsOTmBs="
   }
 }
