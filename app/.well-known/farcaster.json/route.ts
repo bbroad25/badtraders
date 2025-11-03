@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       buttonTitle: "Check this out",
       splashImageUrl: "https://www.badtraders.xyz/splash.png",
       splashBackgroundColor: "#eeccff",
-      webhookUrl: webhookUrl || "https://badtraders.xyz/api/webhook"
+      webhookUrl: webhookUrl || "https://www.badtraders.xyz/api/webhook"
     },
 
     // Keep miniapp as-is, optionally update URLs if needed
