@@ -16,14 +16,18 @@ function getSupabasePool(): Pool {
       throw new Error('DATABASE_URL environment variable is not set. Use Supabase PostgreSQL connection string (e.g., postgresql://user:pass@host/db)');
     }
 
+    // Determine SSL config - Supabase requires SSL but may use self-signed certs
+    const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+    const sslConfig = isLocalhost ? false : {
+      rejectUnauthorized: false // Allow self-signed certificates for Supabase
+    };
+
     pgPool = new Pool({
       connectionString,
       max: 1, // Serverless-friendly: limit connections per function
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
-      ssl: connectionString.includes('localhost') ? false : {
-        rejectUnauthorized: false
-      }
+      ssl: sslConfig
     });
 
     pgPool.on('error', (err: Error) => {
