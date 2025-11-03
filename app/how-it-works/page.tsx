@@ -4,7 +4,8 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
-const ELIGIBILITY_THRESHOLD = 1_000_000
+const FARCASTER_ELIGIBILITY_THRESHOLD = 1_000_000 // 1M for Farcaster miniapp users
+const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000 // 2M for website users
 
 export default function HowItWorksPage() {
   return (
@@ -37,8 +38,18 @@ export default function HowItWorksPage() {
             </div>
             <div className="space-y-4 text-lg leading-relaxed">
               <p>
-                To participate in the <span className="font-bold text-primary">$BADTRADERS</span> competition, you must hold at least{" "}
-                <span className="font-bold text-primary">{ELIGIBILITY_THRESHOLD.toLocaleString()} $BADTRADERS tokens</span>.
+                To participate in the <span className="font-bold text-primary">$BADTRADERS</span> competition, you must hold:
+              </p>
+              <ul className="list-disc list-inside space-y-2 ml-4">
+                <li>
+                  <span className="font-bold text-primary">{FARCASTER_ELIGIBILITY_THRESHOLD.toLocaleString()} $BADTRADERS tokens</span> if you're using Farcaster (lower threshold!)
+                </li>
+                <li>
+                  <span className="font-bold text-primary">{WEBSITE_ELIGIBILITY_THRESHOLD.toLocaleString()} $BADTRADERS tokens</span> if you're accessing via the website
+                </li>
+              </ul>
+              <p>
+                <span className="font-bold text-primary">💡 Tip:</span> Join Farcaster to lower the requirement to {FARCASTER_ELIGIBILITY_THRESHOLD.toLocaleString()} tokens and get free swaps in November!
               </p>
               <p>
                 This isn't about being rich—it's about being committed to your terrible trading decisions. 😭
@@ -58,7 +69,7 @@ export default function HowItWorksPage() {
               <div className="space-y-3">
                 <h3 className="text-xl md:text-2xl font-bold uppercase text-primary">STEP 1: SIGN UP</h3>
                 <p className="text-lg leading-relaxed">
-                  Once you're eligible (holding {ELIGIBILITY_THRESHOLD.toLocaleString()}+ tokens), sign up in the app.
+                  Once you're eligible (holding {FARCASTER_ELIGIBILITY_THRESHOLD.toLocaleString()}+ tokens for Farcaster users, or {WEBSITE_ELIGIBILITY_THRESHOLD.toLocaleString()}+ for website users), sign up in the app.
                   This connects your wallet and Farcaster account so we can track your trading performance.
                 </p>
               </div>
@@ -119,7 +130,7 @@ export default function HowItWorksPage() {
             </div>
             <ol className="space-y-4 text-lg leading-relaxed list-decimal list-inside">
               <li>
-                <span className="font-bold">Hold {ELIGIBILITY_THRESHOLD.toLocaleString()}+ $BADTRADERS tokens</span> in your wallet
+                <span className="font-bold">Hold {FARCASTER_ELIGIBILITY_THRESHOLD.toLocaleString()}+ $BADTRADERS tokens</span> (Farcaster users) or <span className="font-bold">{WEBSITE_ELIGIBILITY_THRESHOLD.toLocaleString()}+ tokens</span> (website users) in your wallet
               </li>
               <li>
                 <span className="font-bold">Sign up in the app</span> to connect your wallet and Farcaster account

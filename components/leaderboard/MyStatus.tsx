@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useState, useEffect } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
+import { useFarcasterContext } from '@/lib/hooks/useFarcasterContext';
 
 interface MyStatusProps {
   walletAddress: string | null;
@@ -29,6 +30,10 @@ export default function MyStatus({
   const [isRegistered, setIsRegistered] = useState<boolean | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoadingRegistration, setIsLoadingRegistration] = useState(false);
+  const [showFarcasterPopup, setShowFarcasterPopup] = useState(false);
+  const { isInFarcaster } = useFarcasterContext();
+
+  const FARCASTER_REFERRAL_URL = 'https://farcaster.xyz/~/code/98TW42';
 
   // Fetch registration status
   useEffect(() => {
@@ -219,12 +224,64 @@ Try it: ${miniappUrl}`,
 
             {/* Buy tokens button - only show if not eligible */}
             {!isEligible && walletAddress && (
-              <Button
-                onClick={handleBuyTokens}
-                className="w-full bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground text-lg py-4 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-              >
-                Buy Tokens
-              </Button>
+              <div className="space-y-3">
+                <Button
+                  onClick={handleBuyTokens}
+                  className="w-full bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground text-lg py-4 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  Buy Tokens
+                </Button>
+                {/* Farcaster referral button - only show for website users (threshold 2M) or if not in Farcaster */}
+                {!isInFarcaster && threshold >= 2_000_000 && (
+                  <Button
+                    onClick={() => setShowFarcasterPopup(true)}
+                    className="w-full bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground text-lg py-4 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                  >
+                    Join Farcaster to Save Money
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Farcaster Referral Popup */}
+            {showFarcasterPopup && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowFarcasterPopup(false)}>
+                <Card
+                  className="bg-card border-4 border-primary p-6 shadow-[12px_12px_0px_0px_rgba(147,51,234,1)] max-w-md w-full"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h3 className="text-2xl font-bold uppercase mb-4">Join Farcaster & Save</h3>
+                  <div className="space-y-4 mb-6">
+                    <p className="text-lg">
+                      Join Farcaster to lower the eligibility requirement from <span className="font-bold">{threshold.toLocaleString()}</span> to <span className="font-bold">1,000,000 tokens</span>!
+                    </p>
+                    <p className="text-lg">
+                      <span className="font-bold">🔥 Bonus:</span> Get free swaps on Farcaster in November!
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Farcaster users get better rates and a lower threshold. Join now and start trading with better benefits.
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={() => {
+                        window.open(FARCASTER_REFERRAL_URL, '_blank', 'noopener,noreferrer');
+                        setShowFarcasterPopup(false);
+                      }}
+                      className="flex-1 bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+                    >
+                      Join Farcaster
+                    </Button>
+                    <Button
+                      onClick={() => setShowFarcasterPopup(false)}
+                      variant="outline"
+                      className="flex-1 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </Card>
+              </div>
             )}
           </>
         )}

@@ -3,7 +3,8 @@ import { getBadTradersBalance, checkEligibility } from '@/lib/services/tokenServ
 import { Configuration, NeynarAPIClient } from '@neynar/nodejs-sdk';
 
 const BADTRADERS_TOKEN_ADDRESS = '0x0774409Cda69A47f272907fd5D0d80173167BB07';
-const ELIGIBILITY_THRESHOLD = 1_000_000;
+const FARCASTER_ELIGIBILITY_THRESHOLD = 1_000_000; // 1M for Farcaster miniapp users
+const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000; // 2M for website users
 
 export async function GET(request: NextRequest) {
   try {
@@ -74,24 +75,26 @@ export async function GET(request: NextRequest) {
         }
 
         // If no addresses found and no addressParam, return zero balance
+        // FID present = Farcaster user = 1M threshold
+        const threshold = FARCASTER_ELIGIBILITY_THRESHOLD;
         if (walletAddresses.length === 0 && !addressParam) {
           return NextResponse.json({
             fid,
             address: null,
             balance: 0,
             isEligible: false,
-            threshold: ELIGIBILITY_THRESHOLD,
+            threshold,
           });
         }
 
-        const isEligible = balance >= ELIGIBILITY_THRESHOLD;
+        const isEligible = balance >= threshold;
 
         return NextResponse.json({
           fid,
           address: walletAddress,
           balance,
           isEligible,
-          threshold: ELIGIBILITY_THRESHOLD,
+          threshold,
         });
       }
 
@@ -106,15 +109,17 @@ export async function GET(request: NextRequest) {
       }
 
       const balance = await getBadTradersBalance(addressParam);
+      // No FID = website user = 2M threshold
+      const threshold = WEBSITE_ELIGIBILITY_THRESHOLD;
       // Note: Eligibility can be calculated client-side (balance >= threshold)
       // We still return it for convenience, but client should calculate it too
-      const isEligible = balance >= ELIGIBILITY_THRESHOLD;
+      const isEligible = balance >= threshold;
 
       return NextResponse.json({
         address: addressParam,
         balance,
         isEligible, // Optional - client can calculate this from balance
-        threshold: ELIGIBILITY_THRESHOLD,
+        threshold,
       });
     }
 

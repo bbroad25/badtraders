@@ -4,17 +4,58 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Twitter, Github } from "lucide-react"
+import { useFarcasterContext } from "@/lib/hooks/useFarcasterContext"
+import WalletConnect from "@/components/WalletConnect"
 
 export default function Navigation() {
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const { isInFarcaster, isLoading: isLoadingFarcaster } = useFarcasterContext()
 
   const navItems = [
     { href: "/", label: "HOME" },
     { href: "/how-it-works", label: "HOW IT WORKS" },
     { href: "/leaderboard", label: "LEADERBOARD" },
     { href: "/users", label: "ALL USERS" },
+    { href: "/coming-next", label: "COMING NEXT" },
     { href: "/indexer", label: "INDEXER" },
+  ]
+
+  const socialLinks = [
+    {
+      href: "https://x.com/BadTraders_",
+      label: "X (Twitter)",
+      icon: Twitter,
+      ariaLabel: "Follow us on X"
+    },
+    {
+      href: "https://warpcast.com/badtraders",
+      label: "Farcaster",
+      icon: () => (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C6.48 2 2 6.48 2 12c0 5.52 4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2V7zm0 8h2v2h-2v-2z"/>
+        </svg>
+      ),
+      ariaLabel: "Follow us on Farcaster"
+    },
+    {
+      href: "https://t.me/badtradersfc",
+      label: "Telegram",
+      icon: () => (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.13-.31-1.09-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+          <path d="M9.78 13.16l-.65 3.05c-.04.2.14.32.27.21l3.05-2.3 5.5-1.69c.26-.08.26-.42 0-.5l-5.5-1.69-3.05-2.3c-.13-.11-.31.01-.27.21l.65 3.05 3.05 2.3z"/>
+        </svg>
+      ),
+      ariaLabel: "Join us on Telegram"
+    },
+    {
+      href: "https://github.com/bbroad25/badtraders",
+      label: "GitHub",
+      icon: Github,
+      ariaLabel: "View on GitHub"
+    },
   ]
 
   const toggleMenu = () => {
@@ -55,6 +96,30 @@ export default function Navigation() {
                 </Link>
               )
             })}
+            {/* Wallet Connect - Desktop - Only show when NOT in Farcaster */}
+            {!isLoadingFarcaster && !isInFarcaster && (
+              <div className="hidden md:flex items-center ml-2">
+                <WalletConnect />
+              </div>
+            )}
+            {/* Social Icons - Desktop */}
+            <div className="hidden md:flex items-center gap-2 ml-2 pl-2 border-l-2 border-primary">
+              {socialLinks.map((social) => {
+                const IconComponent = social.icon
+                return (
+                  <a
+                    key={social.href}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={social.ariaLabel}
+                    className="p-2 text-primary hover:text-primary/80 hover:bg-accent rounded transition-colors"
+                  >
+                    <IconComponent className="w-5 h-5" />
+                  </a>
+                )
+              })}
+            </div>
           </div>
 
           {/* Hamburger Menu Button - Visible on mobile */}
@@ -113,6 +178,30 @@ export default function Navigation() {
                 </Link>
               )
             })}
+            {/* Wallet Connect - Mobile - Only show when NOT in Farcaster */}
+            {!isLoadingFarcaster && !isInFarcaster && (
+              <div className="flex justify-center py-4 border-t-2 border-primary">
+                <WalletConnect />
+              </div>
+            )}
+            {/* Social Icons - Mobile */}
+            <div className="flex items-center justify-center gap-4 pt-4 border-t-2 border-primary">
+              {socialLinks.map((social) => {
+                const IconComponent = social.icon
+                return (
+                  <a
+                    key={social.href}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={social.ariaLabel}
+                    className="p-2 text-primary hover:text-primary/80 hover:bg-accent rounded transition-colors"
+                  >
+                    <IconComponent className="w-6 h-6" />
+                  </a>
+                )
+              })}
+            </div>
           </div>
         </div>
       </div>

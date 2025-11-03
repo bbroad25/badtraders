@@ -33,8 +33,32 @@ export async function GET(request: NextRequest) {
     console.log('Starting indexer sync (cron)...');
     const startTime = Date.now();
 
-    // Run sync for all wallets
-    await syncAllWallets();
+    // Set a timeout to prevent jobs from running too long (Vercel has 10s timeout for Hobby, 60s for Pro)
+    // Use 50 seconds to be safe
+    const TIMEOUT_MS = 50 * 1000;
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Indexer sync timeout')), TIMEOUT_MS);
+    });
+
+    // Run sync with timeout
+    try {
+      await Promise.race([
+        syncAllWallets(),
+        timeoutPromise
+      ]);
+    } catch (error: any) {
+      if (error.message === 'Indexer sync timeout') {
+        console.warn('Indexer sync timed out - partial sync may have completed');
+        return NextResponse.json({
+          success: false,
+          message: 'Indexer sync timed out (partial sync may have completed)',
+          duration: `${Date.now() - startTime}ms`,
+          timestamp: new Date().toISOString()
+        }, { status: 200 }); // Return 200 so cron doesn't retry immediately
+      }
+      throw error;
+    }
 
     const duration = Date.now() - startTime;
     console.log(`Indexer sync completed in ${duration}ms`);

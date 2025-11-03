@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { registerUser } from '@/lib/services/userService';
 import { getBadTradersBalance } from '@/lib/services/tokenService';
 
-const ELIGIBILITY_THRESHOLD = 1_000_000;
+const FARCASTER_ELIGIBILITY_THRESHOLD = 1_000_000; // 1M for Farcaster miniapp users
+const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000; // 2M for website users
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,14 +28,16 @@ export async function POST(request: NextRequest) {
       balance = 0;
     }
 
-    const isEligible = balance >= ELIGIBILITY_THRESHOLD;
+    // FID present = Farcaster user = 1M threshold, otherwise 2M for website
+    const threshold = fid ? FARCASTER_ELIGIBILITY_THRESHOLD : WEBSITE_ELIGIBILITY_THRESHOLD;
+    const isEligible = balance >= threshold;
 
     if (!isEligible) {
       return NextResponse.json(
         {
-          error: 'Not eligible. You must hold at least 1,000,000 $BADTRADERS tokens to register.',
+          error: `Not eligible. You must hold at least ${threshold.toLocaleString()} $BADTRADERS tokens to register.${!fid ? ' Join Farcaster to lower the requirement to 1,000,000 tokens!' : ''}`,
           balance,
-          threshold: ELIGIBILITY_THRESHOLD
+          threshold
         },
         { status: 403 }
       );

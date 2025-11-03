@@ -1,7 +1,7 @@
 # Indexer Implementation Status
 
-**Branch:** `feature/indexer-implementation`  
-**Date:** Current session  
+**Branch:** `feature/indexer-implementation`
+**Date:** Current session
 **Status:** Implementation complete, needs testing and sync trigger
 
 ## ✅ Completed
@@ -190,4 +190,5 @@ Before deploying to production:
 3. Check that leaderboard uses the new indexer data
 4. Consider whether to sync all eligible wallets vs just registered ones
 5. Fine-tune swap detection if needed
+
 

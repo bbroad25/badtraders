@@ -16,6 +16,13 @@ const provider = ALCHEMY_API_KEY
   : null;
 
 /**
+ * Delay helper to prevent rate limiting
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
  * Get current block number
  */
 async function getCurrentBlockNumber(): Promise<number> {
@@ -162,11 +169,25 @@ async function processSwapTransaction(
       return false;
     }
 
-    // Get historical price
-    const priceUsd = await getHistoricalPrice(tokenAddress, Math.floor(timestamp.getTime() / 1000));
-    if (!priceUsd || priceUsd <= 0) {
-      console.warn(`Could not get price for ${tokenAddress} at timestamp ${timestamp}`);
+    // Validate timestamp before using it
+    if (isNaN(timestamp.getTime())) {
+      console.warn(`Invalid timestamp for tx ${txHash}, skipping`);
       return false;
+    }
+
+    // Get historical price
+    let priceUsd: number | null = null;
+    try {
+      priceUsd = await getHistoricalPrice(tokenAddress, Math.floor(timestamp.getTime() / 1000));
+    } catch (error) {
+      console.warn(`Error getting price for ${tokenAddress} at timestamp ${timestamp}:`, error);
+    }
+
+    if (!priceUsd || priceUsd <= 0) {
+      // Use a fallback price of 0.0001 to allow processing (better than skipping)
+      // This ensures swaps are tracked even if price lookup fails
+      console.warn(`Could not get price for ${tokenAddress} at timestamp ${timestamp}, using fallback price`);
+      priceUsd = 0.0001;
     }
 
     // Calculate USD value
@@ -233,31 +254,79 @@ export async function syncWalletTransactions(walletAddress: string): Promise<voi
   console.log(`Fetching transactions from block ${lastSyncedBlock} to ${currentBlock}`);
 
   try {
-    // Fetch transactions from Alchemy
-    // Note: Alchemy's getAssetTransfers is better for this than getHistory
-    const response = await fetch(`https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'alchemy_getAssetTransfers',
-        params: [{
-          fromBlock: `0x${lastSyncedBlock.toString(16)}`,
-          toBlock: 'latest',
-          toAddress: walletAddr,
-          excludeZeroValue: false,
-          category: ['erc20']
-        }]
-      })
-    });
+    // Limit block range to prevent timeouts (max 5000 blocks per request)
+    const MAX_BLOCKS_PER_REQUEST = 5000;
+    const blockRange = currentBlock - lastSyncedBlock;
 
-    const data = await response.json();
-    if (data.error) {
-      throw new Error(`Alchemy API Error: ${data.error.message}`);
+    if (blockRange > MAX_BLOCKS_PER_REQUEST) {
+      // Split into multiple requests
+      let syncBlock = lastSyncedBlock;
+      let totalTransfers: any[] = [];
+
+      while (syncBlock < currentBlock) {
+        const endBlock = Math.min(syncBlock + MAX_BLOCKS_PER_REQUEST, currentBlock);
+
+        const response = await fetch(`https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: 1,
+            jsonrpc: '2.0',
+            method: 'alchemy_getAssetTransfers',
+            params: [{
+              fromBlock: `0x${syncBlock.toString(16)}`,
+              toBlock: `0x${endBlock.toString(16)}`,
+              toAddress: walletAddr,
+              excludeZeroValue: false,
+              category: ['erc20']
+            }]
+          })
+        });
+
+        const data = await response.json();
+        if (data.error) {
+          throw new Error(`Alchemy API Error: ${data.error.message}`);
+        }
+
+        const transfers = data.result?.transfers || [];
+        totalTransfers = totalTransfers.concat(transfers);
+
+        syncBlock = endBlock;
+
+        // Small delay between requests to avoid rate limiting
+        if (syncBlock < currentBlock) {
+          await delay(200);
+        }
+      }
+
+      var transfers = totalTransfers;
+    } else {
+      // Single request for small range
+      const response = await fetch(`https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'alchemy_getAssetTransfers',
+          params: [{
+            fromBlock: `0x${lastSyncedBlock.toString(16)}`,
+            toBlock: 'latest',
+            toAddress: walletAddr,
+            excludeZeroValue: false,
+            category: ['erc20']
+          }]
+        })
+      });
+
+      const data = await response.json();
+      if (data.error) {
+        throw new Error(`Alchemy API Error: ${data.error.message}`);
+      }
+
+      var transfers = data.result?.transfers || [];
     }
 
-    const transfers = data.result?.transfers || [];
     console.log(`Found ${transfers.length} transfers for wallet ${walletAddr}`);
 
     // Process each transfer to find swaps
@@ -267,16 +336,40 @@ export async function syncWalletTransactions(walletAddress: string): Promise<voi
     for (const transfer of transfers) {
       const txHash = transfer.hash;
       const blockNumber = parseInt(transfer.blockNum, 16);
-      const timestamp = new Date(transfer.metadata?.blockTimestamp);
+
+      // Validate and parse timestamp
+      let timestamp: Date;
+      if (transfer.metadata?.blockTimestamp) {
+        timestamp = new Date(transfer.metadata.blockTimestamp);
+        // Validate date is valid
+        if (isNaN(timestamp.getTime())) {
+          console.warn(`Invalid timestamp for tx ${txHash}, skipping`);
+          continue;
+        }
+      } else {
+        // Fallback: try to get timestamp from block
+        try {
+          const block = await provider.getBlock(blockNumber);
+          timestamp = new Date(block.timestamp * 1000);
+        } catch (error) {
+          console.warn(`Could not get timestamp for tx ${txHash}, skipping`);
+          continue;
+        }
+      }
 
       if (blockNumber > latestBlockSeen) {
         latestBlockSeen = blockNumber;
       }
 
       // Process the transaction (will check if it's a swap internally)
-      const processed = await processSwapTransaction(txHash, walletAddr, blockNumber, timestamp);
-      if (processed) {
-        processedCount++;
+      try {
+        const processed = await processSwapTransaction(txHash, walletAddr, blockNumber, timestamp);
+        if (processed) {
+          processedCount++;
+        }
+      } catch (error) {
+        console.error(`Error processing tx ${txHash}:`, error);
+        // Continue with next transfer instead of failing entire sync
       }
     }
 
@@ -291,7 +384,7 @@ export async function syncWalletTransactions(walletAddress: string): Promise<voi
 }
 
 /**
- * Sync all registered wallets
+ * Sync all registered wallets with rate limiting
  */
 export async function syncAllWallets(): Promise<void> {
   try {
@@ -303,12 +396,34 @@ export async function syncAllWallets(): Promise<void> {
     const wallets = result.rows.map((row: any) => row.wallet_address);
     console.log(`Syncing ${wallets.length} registered wallets`);
 
-    for (const wallet of wallets) {
-      try {
-        await syncWalletTransactions(wallet);
-      } catch (error) {
-        console.error(`Error syncing wallet ${wallet}:`, error);
-        // Continue with next wallet
+    // Process wallets in batches with delays to prevent server overload
+    const BATCH_SIZE = 5;
+    const DELAY_BETWEEN_BATCHES = 2000; // 2 seconds
+    const DELAY_BETWEEN_WALLETS = 500; // 500ms
+
+    for (let i = 0; i < wallets.length; i += BATCH_SIZE) {
+      const batch = wallets.slice(i, i + BATCH_SIZE);
+
+      // Process batch concurrently
+      await Promise.all(
+        batch.map(async (wallet, index) => {
+          // Stagger wallet processing within batch
+          if (index > 0) {
+            await delay(DELAY_BETWEEN_WALLETS * index);
+          }
+
+          try {
+            await syncWalletTransactions(wallet);
+          } catch (error) {
+            console.error(`Error syncing wallet ${wallet}:`, error);
+            // Continue with next wallet - don't fail entire batch
+          }
+        })
+      );
+
+      // Delay between batches (except for last batch)
+      if (i + BATCH_SIZE < wallets.length) {
+        await delay(DELAY_BETWEEN_BATCHES);
       }
     }
 
