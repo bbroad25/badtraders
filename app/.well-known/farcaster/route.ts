@@ -7,28 +7,23 @@ import { NextResponse } from 'next/server';
  */
 export async function GET() {
   const manifest = {
-    accountAssociation: {
-      // This will be populated when you sign it via Base Build
-      // For now, returning the structure
-      domain: "badtraders.xyz",
-    },
-    // Base Build specific configuration
-    baseBuilder: {
-      // Will be set when signed
-    },
-    // Frame fallback
-    frame: {
-      version: "vNext",
-      imageUrl: "https://badtraders.xyz/og-image.jpg",
-      button: {
-        action: {
-          type: "link",
-          target: "https://badtraders.xyz/leaderboard",
-        },
-        title: "Open Leaderboard",
-      },
-    },
-  };
+  "accountAssociation": {
+    "header": "eyJmaWQiOjcyMTIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhBODU1ZmFFNEZmY0M1OUM3N0M3NkRjZmEzYUJmREY3NEEyMzQ0YTE4In0",
+    "payload": "eyJkb21haW4iOiJiYWR0cmFkZXJzLnh5eiJ9",
+    "signature": "UMNPzKG3f1sr1ZfgCKpuFhgFMhpodHLaIY+wrTTNXfQE8IbyzlXtDqKYSjTcLAMH9sYWOueC7UTvs2t2ViKJRRs="
+  },
+  "frame": {
+    "version": "1",
+    "name": "Example Frame",
+    "iconUrl": "https://badtraders.xyz/icon.png",
+    "homeUrl": "https://badtraders.xyz",
+    "imageUrl": "https://badtraders.xyz/image.png",
+    "buttonTitle": "Check this out",
+    "splashImageUrl": "https://badtraders.xyz/splash.png",
+    "splashBackgroundColor": "#eeccff",
+    "webhookUrl": "https://badtraders.xyz/api/webhook"
+  }
+};
 
   return NextResponse.json(manifest, {
     headers: {
