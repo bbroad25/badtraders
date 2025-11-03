@@ -1,11 +1,26 @@
 import { NextResponse } from 'next/server';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 
 export async function GET() {
-  // Read the manifest from .well-known/farcaster.json
-  const manifestPath = join(process.cwd(), '.well-known', 'farcaster.json');
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+  // Manifest with correct miniapp structure
+  const manifest = {
+    miniapp: {
+      version: "1",
+      name: "Bad Traders",
+      iconUrl: "https://badtraders.xyz/icon.jpg",
+      homeUrl: "https://badtraders.xyz",
+      imageUrl: "https://badtraders.xyz/og-image.jpg",
+      splashImageUrl: "https://badtraders.xyz/badtraders.png",
+      splashBackgroundColor: "#8A63D2",
+      tagline: "We trade bad but we fun good",
+      description: "Track the biggest weekly losses. The $BadTrader competition leaderboard.",
+      primaryCategory: "social"
+    },
+    accountAssociation: {
+      header: "eyJmaWQiOjcyMTIsInR5cGUiOiJhdXRoIiwia2V5IjoiMHg2QjVGNEViYzZDODUzMjA2RTJlNkMzMTliOWI3YzJGNUY2NGU2ODMxIn0",
+      payload: "eyJkb21haW4iOiJiYWR0cmFkZXJzLnh5eiJ9",
+      signature: "scRafgqIzudsFQ6dpceLg4PY94tjZs6KPNfGjSvSK046iOLxDXF0ZC/FDIhAEGBbo1RvtazAsnzcq6/sjsOTmBs="
+    }
+  };
 
   return NextResponse.json(manifest, {
     headers: {
