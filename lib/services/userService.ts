@@ -36,6 +36,34 @@ export async function getUserByFid(fid: number): Promise<User | null> {
 }
 
 /**
+ * Register wallet for indexing (add to wallets table)
+ */
+async function registerWalletForIndexing(walletAddress: string): Promise<void> {
+  try {
+    const walletAddr = walletAddress.toLowerCase();
+
+    // Check if wallet already exists
+    const existing = await query(
+      'SELECT id FROM wallets WHERE wallet_address = $1',
+      [walletAddr]
+    );
+
+    if (existing.rows.length === 0) {
+      // Get current block number for 30-day lookback
+      // We'll set last_synced_block later when we have the provider available
+      // For now, set to 0 to indicate it needs initial sync
+      await query(
+        'INSERT INTO wallets (wallet_address, last_synced_block, created_at, updated_at) VALUES ($1, 0, NOW(), NOW()) ON CONFLICT (wallet_address) DO NOTHING',
+        [walletAddr]
+      );
+    }
+  } catch (error) {
+    console.error('Error registering wallet for indexing:', error);
+    // Don't throw - indexing registration failure shouldn't block user registration
+  }
+}
+
+/**
  * Register a user (opt-in to competition)
  */
 export async function registerUser(
@@ -63,6 +91,9 @@ export async function registerUser(
         [walletAddress, username, eligibilityStatus, fid]
       );
 
+      // Register wallet for indexing
+      await registerWalletForIndexing(walletAddress);
+
       return result.rows[0] as User;
     } else {
       // Create new user (Supabase)
@@ -72,6 +103,9 @@ export async function registerUser(
          RETURNING *`,
         [fid, username, walletAddress, eligibilityStatus]
       );
+
+      // Register wallet for indexing
+      await registerWalletForIndexing(walletAddress);
 
       return result.rows[0] as User;
     }

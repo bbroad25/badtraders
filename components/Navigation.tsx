@@ -14,6 +14,7 @@ export default function Navigation() {
     { href: "/how-it-works", label: "HOW IT WORKS" },
     { href: "/leaderboard", label: "LEADERBOARD" },
     { href: "/users", label: "ALL USERS" },
+    { href: "/indexer", label: "INDEXER" },
   ]
 
   const toggleMenu = () => {
