@@ -12,7 +12,7 @@ export async function GET() {
       splashImageUrl: "https://badtraders.xyz/badtraders.png",
       splashBackgroundColor: "#8A63D2",
       tagline: "We trade bad but we fun good",
-      description: "Track the biggest weekly losses. The $BadTrader competition leaderboard.",
+      description: "Track the biggest weekly losses. The BadTrader competition leaderboard.",
       primaryCategory: "social"
     },
     accountAssociation: {
