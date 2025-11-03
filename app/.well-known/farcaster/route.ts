@@ -14,7 +14,7 @@ export async function GET() {
   },
   "frame": {
     "version": "1",
-    "name": "Example Frame",
+    "name": "$BADTRADERS",
     "iconUrl": "https://badtraders.xyz/icon.png",
     "homeUrl": "https://badtraders.xyz",
     "imageUrl": "https://badtraders.xyz/image.png",
