@@ -4,9 +4,9 @@
 
 Go to Supabase SQL Editor and run:
 ```sql
-SELECT table_name 
-FROM information_schema.tables 
-WHERE table_schema = 'public' 
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
 AND table_name IN ('users', 'daily_payouts', 'trading_metrics', 'leaderboard_cache');
 ```
 
