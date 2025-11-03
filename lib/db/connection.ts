@@ -10,16 +10,25 @@ let pgPool: Pool | null = null;
  */
 function getSupabasePool(): Pool {
   if (!pgPool) {
-    const connectionString = process.env.DATABASE_URL;
+    let connectionString = process.env.DATABASE_URL;
 
     if (!connectionString) {
       throw new Error('DATABASE_URL environment variable is not set. Use Supabase PostgreSQL connection string (e.g., postgresql://user:pass@host/db)');
     }
 
-    // Determine SSL config - Supabase requires SSL but may use self-signed certs
+    // Determine SSL config - Supabase requires SSL but uses certificates that may not be in Node's trust store
     const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+    
+    // Remove sslmode from connection string to avoid conflicts, we'll handle SSL via Pool config
+    // This prevents the connection string's sslmode=require from conflicting with our SSL config
+    connectionString = connectionString.replace(/[?&]sslmode=[^&$]*/, '');
+    // Clean up any trailing ? or & after removal
+    connectionString = connectionString.replace(/[?&]+$/, '');
+    
+    // For Supabase, always use SSL but don't reject unauthorized certificates
+    // This is safe because we're using Supabase's pooler which is trusted
     const sslConfig = isLocalhost ? false : {
-      rejectUnauthorized: false // Allow self-signed certificates for Supabase
+      rejectUnauthorized: false // Allow Supabase's self-signed/intermediate certificates
     };
 
     pgPool = new Pool({
