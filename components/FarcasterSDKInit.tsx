@@ -10,6 +10,20 @@ import { sdk } from "@farcaster/miniapp-sdk"
  */
 export default function FarcasterSDKInit() {
   useEffect(() => {
+    // Suppress harmless CORS errors from Farcaster wallet's Privy analytics
+    // These are just analytics events being blocked - they don't affect functionality
+    const originalError = console.error;
+    console.error = (...args: any[]) => {
+      const message = args.join(' ');
+      // Filter out Privy analytics CORS errors - these are harmless and expected
+      if (message.includes('privy.farcaster.xyz/api/v1/analytics_events') ||
+          message.includes('Access-Control-Allow-Origin') && message.includes('privy.farcaster.xyz')) {
+        // Silently ignore these - they're just analytics noise from Farcaster wallet
+        return;
+      }
+      originalError.apply(console, args);
+    };
+
     const initFarcasterSDK = async () => {
       try {
         console.log("[BadTraders] 🔄 Attempting to call sdk.actions.ready()...")
@@ -57,7 +71,11 @@ export default function FarcasterSDKInit() {
     // Call immediately and also after a short delay (matching pumpkin project pattern)
     initFarcasterSDK()
     const timer = setTimeout(initFarcasterSDK, 500)
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(timer)
+      // Restore original console.error on unmount
+      console.error = originalError
+    }
   }, [])
 
   return null // This component doesn't render anything
