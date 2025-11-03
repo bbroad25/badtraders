@@ -27,15 +27,18 @@ export const metadata: Metadata = {
     "fc:frame": "vNext",
     "fc:miniapp": JSON.stringify({
       version: "1",
-      title: "$BADTRADERS Leaderboard",
-      description: "Track the biggest weekly losses. The $BadTrader competition leaderboard.",
-      imageUrl: "https://badtraders.xyz/badtraders.png",
+      name: "Bad Traders",
+      iconUrl: "https://badtraders.xyz/icon.jpg",
+      homeUrl: "https://badtraders.xyz",
       splashImageUrl: "https://badtraders.xyz/badtraders.png",
+      splashBackgroundColor: "#8A63D2",
+      imageUrl: "https://badtraders.xyz/og-image.jpg",
+      tagline: "We trade bad but we fun good",
+      description: "Track the biggest weekly losses. The $BadTrader competition leaderboard.",
       button: {
         title: "Open Leaderboard",
         action: { type: "launch" },
       },
-      homeUrl: "https://badtraders.xyz",
       postUrl: "https://badtraders.xyz/api/frame",
     }),
     // Farcaster frame fallback
