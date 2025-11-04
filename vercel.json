@@ -1,5 +1,10 @@
 {
-  "rewrites": [],
+  "rewrites": [
+    {
+      "source": "/.well-known/farcaster.json",
+      "destination": "/api/farcaster-manifest"
+    }
+  ],
   "redirects": [
     {
       "source": "/.well-known/:path*",

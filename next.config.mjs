@@ -6,15 +6,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Removed rewrite rule - using static file at public/.well-known/farcaster.json instead
-  // async rewrites() {
-  //   return [
-  //     {
-  //       source: '/.well-known/farcaster.json',
-  //       destination: '/api/farcaster-manifest',
-  //     },
-  //   ];
-  // },
+  async rewrites() {
+    return [
+      {
+        source: '/.well-known/farcaster.json',
+        destination: '/api/farcaster-manifest',
+      },
+    ];
+  },
   async headers() {
     return [
       {
