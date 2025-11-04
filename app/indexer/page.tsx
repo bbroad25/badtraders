@@ -99,18 +99,12 @@ export default function IndexerPage() {
       setIsSyncing(true)
       setError(null)
 
-      const cronSecret = prompt('Enter CRON_SECRET:')
-      if (!cronSecret) {
-        setError('CRON_SECRET required')
-        setIsSyncing(false)
-        return
-      }
-
-      const response = await fetch('/api/cron/indexer', {
-        method: 'GET',
+      const response = await fetch('/api/indexer/sync', {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${cronSecret}`
-        }
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ mode: 'full' })
       })
 
       const data = await response.json()

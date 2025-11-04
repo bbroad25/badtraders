@@ -1,0 +1,8 @@
+# Local indexer - git ignored
+node_modules/
+.env
+.env.local
+*.log
+dist/
+build/
+

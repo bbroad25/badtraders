@@ -1,0 +1,23 @@
+{
+  "name": "badtraders-indexer-local",
+  "version": "1.0.0",
+  "description": "Local indexer for BadTraders - runs separately from production website",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "trace-test": "tsx src/scripts/test-trace-parsing.ts"
+  },
+  "dependencies": {
+    "ethers": "^6.15.0",
+    "pg": "^8.11.3",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/pg": "^8.11.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5"
+  }
+}
+
