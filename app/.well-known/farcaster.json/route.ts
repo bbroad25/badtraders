@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Farcaster Mini App Manifest
@@ -16,12 +16,13 @@ export async function GET(req: NextRequest) {
       splashBackgroundColor: "#8A63D2",
       imageUrl: "https://badtraders.xyz/og-image.jpg",
       tagline: "We trade bad but we fun good",
-      description: "Track the biggest weekly losses. The BadTrader competition leaderboard."
+      description: "Track the biggest weekly losses. The BadTrader competition leaderboard.",
+      primaryCategory: "social"
     },
     accountAssociation: {
-      header: "eyJmaWQiOjcyMTIsInR5cGUiOiJhdXRoIiwia2V5IjoiMHg2QjVGNEViYzZDODUzMjA2RTJlNkMzMTliOWI3YzJGNUY2NGU2ODMxIn0",
+      header: "eyJmaWQiOjQ3NDg2NywidHlwZSI6ImF1dGgiLCJrZXkiOiIweDhERkJkRUVDOGM1ZDQ5NzBCQjVGNDgxQzZlYzdmNzNmYTFDNjViZTUifQ",
       payload: "eyJkb21haW4iOiJiYWR0cmFkZXJzLnZlcmNlbC5hcHAifQ",
-      signature: "scRafgqIzudsFQ6dpceLg4PY94tjZs6KPNfGjSvSK046iOLxDXF0ZC/FDIhAEGBbo1RvtazAsnzcq6/sjsOTmBs="
+      signature: "q88WynF2zmG4EfZv2xYJJDYobMiWFmCu6E/HhR/1efMsI4YyoO0yY1Yy3/i8j7TjlavJKAUi0d2zKUMt/r/AmBw="
     }
   };
 
