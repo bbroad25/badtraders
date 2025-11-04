@@ -2,8 +2,8 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Space_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
-import Script from "next/script"
 import Navigation from "@/components/Navigation"
+import FarcasterReady from "@/components/FarcasterReady"
 import "./globals.css"
 
 const spaceMono = Space_Mono({
@@ -76,6 +76,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`${spaceMono.variable} font-mono antialiased`}>
+        <FarcasterReady />
         <Navigation />
         {children}
         <Analytics />
