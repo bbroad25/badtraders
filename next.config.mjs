@@ -6,10 +6,18 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  async headers() {
+  async rewrites() {
     return [
       {
         source: '/.well-known/farcaster.json',
+        destination: '/api/farcaster-manifest',
+      },
+    ];
+  },
+  async headers() {
+    return [
+      {
+        source: '/api/farcaster-manifest',
         headers: [
           {
             key: 'Content-Type',

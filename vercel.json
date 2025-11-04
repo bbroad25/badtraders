@@ -1,7 +1,13 @@
 {
-  "headers": [
+  "rewrites": [
     {
       "source": "/.well-known/farcaster.json",
+      "destination": "/api/farcaster-manifest"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/farcaster-manifest",
       "headers": [
         {
           "key": "Content-Type",
