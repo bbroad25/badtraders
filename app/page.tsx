@@ -8,6 +8,26 @@ import { sdk } from '@farcaster/miniapp-sdk'
 import MyStatus from '@/components/leaderboard/MyStatus'
 import { useFarcasterContext } from '@/lib/hooks/useFarcasterContext'
 
+// CRITICAL: Call ready() immediately on module load, before React renders
+if (typeof window !== 'undefined') {
+  (async () => {
+    try {
+      console.log('[BadTraders] 🚀 IMMEDIATE ready() call on module load');
+      await sdk.actions.ready();
+      console.log('[BadTraders] ✅ IMMEDIATE ready() succeeded');
+    } catch (err) {
+      console.error('[BadTraders] ❌ IMMEDIATE ready() failed:', err);
+      // Retry immediately
+      try {
+        await sdk.actions.ready();
+        console.log('[BadTraders] ✅ IMMEDIATE ready() retry succeeded');
+      } catch (retryErr) {
+        console.error('[BadTraders] ❌ IMMEDIATE ready() retry failed:', retryErr);
+      }
+    }
+  })();
+}
+
 const FARCASTER_ELIGIBILITY_THRESHOLD = 1_000_000; // 1M for Farcaster miniapp users
 const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000; // 2M for website users
 
@@ -28,10 +48,15 @@ export default function BadTradersLanding() {
   const { isInFarcaster, isLoading: isLoadingFarcaster } = useFarcasterContext()
 
   // Initialize Farcaster SDK and call ready - CRITICAL for dismissing splash screen
+  // This MUST run - multiple attempts to ensure it executes
   useEffect(() => {
+    console.log('[BadTraders] 🎯 useEffect for ready() is running');
+
     const initializeSDK = async () => {
       try {
         console.log('[BadTraders] 🔄 Attempting to call sdk.actions.ready()...');
+        console.log('[BadTraders] SDK object:', sdk);
+        console.log('[BadTraders] SDK.actions:', sdk?.actions);
 
         // Call ready() first to initialize the SDK
         await sdk.actions.ready();
@@ -51,6 +76,7 @@ export default function BadTradersLanding() {
         }
       } catch (error: any) {
         console.error('[BadTraders] ❌ SDK ready() error:', error);
+        console.error('[BadTraders] Error details:', error?.message, error?.stack);
         // Try calling it again as a fallback
         try {
           console.log('[BadTraders] 🔄 Retrying sdk.actions.ready()...');
@@ -62,10 +88,19 @@ export default function BadTradersLanding() {
       }
     };
 
-    // Call immediately and also after a short delay
+    // Call immediately and multiple times with delays to ensure it runs
     initializeSDK();
-    const timer = setTimeout(initializeSDK, 500);
-    return () => clearTimeout(timer);
+    const timer1 = setTimeout(initializeSDK, 100);
+    const timer2 = setTimeout(initializeSDK, 500);
+    const timer3 = setTimeout(initializeSDK, 1000);
+    const timer4 = setTimeout(initializeSDK, 2000);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+      clearTimeout(timer4);
+    };
   }, []);
 
   const loadTokenBalance = useCallback(async (fid: number | null, address: string | null = null) => {
