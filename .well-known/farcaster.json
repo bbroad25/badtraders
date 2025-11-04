@@ -12,8 +12,8 @@
     "primaryCategory": "social"
   },
   "accountAssociation": {
-    "header": "eyJmaWQiOjQ3NDg2NywidHlwZSI6ImF1dGgiLCJrZXkiOiIweDhERkJkRUVDOGM1ZDQ5NzBCQjVGNDgxQzZlYzdmNzNmYTFDNjViZTUifQ",
-    "payload": "eyJkb21haW4iOiJiYWR0cmFkZXJzLnZlcmNlbC5hcHAifQ",
-    "signature": "q88WynF2zmG4EfZv2xYJJDYobMiWFmCu6E/HhR/1efMsI4YyoO0yY1Yy3/i8j7TjlavJKAUi0d2zKUMt/r/AmBw="
+    "header": "eyJmaWQiOjcyMTIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhBODU1ZmFFNEZmY0M1OUM3N0M3NkRjZmEzYUJmREY3NEEyMzQ0YTE4In0",
+    "payload": "eyJkb21haW4iOiJ3d3cuYmFkdHJhZGVycy54eXoifQ",
+    "signature": "YDtfGSgFQEhKSRrTo6I+JoKS6KOSH8ijXgej/uNKsIwtnj8/gqHkMUySk9lk3CVIYBsl9VVhO433xHVHkNO6Fxs="
   }
 }
