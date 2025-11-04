@@ -1,16 +1,20 @@
 import { NextResponse } from 'next/server';
 
+/**
+ * Farcaster Mini App Manifest
+ * Served at /.well-known/farcaster
+ * Must match the structure in .well-known/farcaster.json
+ */
 export async function GET() {
-  // Manifest with correct miniapp structure
   const manifest = {
     miniapp: {
       version: "1",
       name: "Bad Traders",
       iconUrl: "https://badtraders.xyz/icon.jpg",
       homeUrl: "https://badtraders.xyz",
-      imageUrl: "https://badtraders.xyz/og-image.jpg",
       splashImageUrl: "https://badtraders.xyz/badtraders.png",
       splashBackgroundColor: "#8A63D2",
+      imageUrl: "https://badtraders.xyz/og-image.jpg",
       tagline: "We trade bad but we fun good",
       description: "Track the biggest weekly losses. The BadTrader competition leaderboard.",
       primaryCategory: "social"
@@ -24,8 +28,9 @@ export async function GET() {
 
   return NextResponse.json(manifest, {
     headers: {
-      'Access-Control-Allow-Origin': '*',
       'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
     },
   });
 }
+

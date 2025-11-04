@@ -18,13 +18,13 @@ function getSupabasePool(): Pool {
 
     // Determine SSL config - Supabase requires SSL but uses certificates that may not be in Node's trust store
     const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
-    
+
     // Remove sslmode from connection string to avoid conflicts, we'll handle SSL via Pool config
     // This prevents the connection string's sslmode=require from conflicting with our SSL config
     connectionString = connectionString.replace(/[?&]sslmode=[^&$]*/, '');
     // Clean up any trailing ? or & after removal
     connectionString = connectionString.replace(/[?&]+$/, '');
-    
+
     // For Supabase, always use SSL but don't reject unauthorized certificates
     // This is safe because we're using Supabase's pooler which is trusted
     const sslConfig = isLocalhost ? false : {
@@ -34,13 +34,19 @@ function getSupabasePool(): Pool {
     pgPool = new Pool({
       connectionString,
       max: 1, // Serverless-friendly: limit connections per function
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      idleTimeoutMillis: 10000, // Reduced from 30s to 10s - pooler closes faster
+      connectionTimeoutMillis: 5000,
       ssl: sslConfig
     });
 
     pgPool.on('error', (err: Error) => {
-      console.error('Unexpected error on idle database client', err);
+      // Ignore connection termination errors from pooler - these are normal
+      const errorMessage = err.message || String(err);
+      if (!errorMessage.includes('shutdown') && !errorMessage.includes('db_termination')) {
+        console.error('Unexpected error on idle database client', err);
+      }
+      // Reset pool on error to force reconnection
+      pgPool = null;
     });
   }
 
@@ -51,11 +57,25 @@ function getSupabasePool(): Pool {
  * Execute a query (Supabase PostgreSQL - same in dev and production)
  */
 export async function query(text: string, params?: any[]) {
-  const pool = getSupabasePool();
+  let pool = getSupabasePool();
   try {
     const result = await pool.query(text, params);
     return result;
-  } catch (error) {
+  } catch (error: any) {
+    // If connection was terminated, reset pool and retry once
+    const errorMessage = error?.message || String(error);
+    if (errorMessage.includes('shutdown') || errorMessage.includes('db_termination') || errorMessage.includes('terminated')) {
+      console.warn('Connection terminated, resetting pool and retrying...');
+      pgPool = null;
+      pool = getSupabasePool();
+      try {
+        const retryResult = await pool.query(text, params);
+        return retryResult;
+      } catch (retryError) {
+        console.error('Supabase query error on retry:', retryError);
+        throw retryError;
+      }
+    }
     console.error('Supabase query error:', error);
     throw error;
   }

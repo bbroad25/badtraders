@@ -92,9 +92,9 @@ CREATE INDEX IF NOT EXISTS idx_leaderboard_cache_key ON leaderboard_cache(cache_
 Run this in SQL Editor to check:
 
 ```sql
-SELECT table_name 
-FROM information_schema.tables 
-WHERE table_schema = 'public' 
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
 AND table_name IN ('users', 'daily_payouts', 'trading_metrics', 'leaderboard_cache');
 ```
 

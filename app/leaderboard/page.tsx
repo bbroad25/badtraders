@@ -11,7 +11,8 @@ import { LeaderboardEntry } from '@/types/leaderboard';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { useCallback, useEffect, useState, useRef } from 'react';
 
-const ELIGIBILITY_THRESHOLD = 1_000_000;
+const FARCASTER_ELIGIBILITY_THRESHOLD = 1_000_000; // 1M for Farcaster miniapp users
+const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000; // 2M for website users
 const BADTRADERS_CONTRACT = '0x0774409Cda69A47f272907fd5D0d80173167BB07';
 
 export default function LeaderboardPage() {
@@ -22,6 +23,7 @@ export default function LeaderboardPage() {
   const [userBalance, setUserBalance] = useState<number>(0);
   const [isEligible, setIsEligible] = useState<boolean>(false);
   const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false);
+  const [eligibilityThreshold, setEligibilityThreshold] = useState<number>(WEBSITE_ELIGIBILITY_THRESHOLD);
   const [memeImageUrl, setMemeImageUrl] = useState<string | null>(null);
   const [isGeneratingMeme, setIsGeneratingMeme] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +31,7 @@ export default function LeaderboardPage() {
   // Track initialization to prevent multiple calls
   const hasInitialized = useRef(false);
   const providerRef = useRef<any>(null);
+  const walletAddressRef = useRef<string | null>(null);
 
   const loadTokenBalance = useCallback(async (fid: number | null, address: string | null = null) => {
     setIsLoadingBalance(true);
@@ -65,7 +68,10 @@ export default function LeaderboardPage() {
             const decimals = await tokenContract.decimals().catch(() => 18);
             const balanceFormatted = parseFloat(ethers.formatUnits(balance, decimals));
             setUserBalance(balanceFormatted);
-            setIsEligible(balanceFormatted >= ELIGIBILITY_THRESHOLD);
+            // Use appropriate threshold based on whether we have FID (Farcaster user)
+            const threshold = userFid ? FARCASTER_ELIGIBILITY_THRESHOLD : WEBSITE_ELIGIBILITY_THRESHOLD;
+            setEligibilityThreshold(threshold);
+            setIsEligible(balanceFormatted >= threshold);
             return;
           } catch (fallbackErr) {
             console.warn('Client-side contract query failed:', fallbackErr);
@@ -79,9 +85,11 @@ export default function LeaderboardPage() {
       }
       const data = await response.json();
       const balance = data.balance || 0;
+      const threshold = data.threshold || (userFid ? FARCASTER_ELIGIBILITY_THRESHOLD : WEBSITE_ELIGIBILITY_THRESHOLD);
       setUserBalance(balance);
+      setEligibilityThreshold(threshold);
       // Calculate eligibility client-side (just balance >= threshold)
-      setIsEligible(balance >= ELIGIBILITY_THRESHOLD);
+      setIsEligible(balance >= threshold);
       // Update wallet address from response if provided
       if (data.address && !walletAddress) {
         setWalletAddress(data.address);
@@ -122,6 +130,7 @@ export default function LeaderboardPage() {
               const accounts = await ethProvider.request({ method: 'eth_accounts' });
               if (accounts && accounts[0]) {
                 const address = accounts[0];
+                walletAddressRef.current = address;
                 setWalletAddress(address);
                 // Try API with FID first, but pass address for client-side fallback
                 await loadTokenBalance(fid, address);
@@ -146,6 +155,68 @@ export default function LeaderboardPage() {
     getUserContext();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - only run once on mount
+
+  // Listen for wallet connections from WalletConnect (website users)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.ethereum) return;
+
+    const checkWalletConnection = async () => {
+      try {
+        const { ethers } = await import('ethers');
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await provider.listAccounts();
+        if (accounts.length > 0) {
+          const address = accounts[0].address;
+          // Only update if different or if we don't have one yet
+          if (!walletAddressRef.current || walletAddressRef.current.toLowerCase() !== address.toLowerCase()) {
+            walletAddressRef.current = address;
+            setWalletAddress(address);
+            // Load balance for website user (no FID)
+            await loadTokenBalance(null, address);
+          }
+        }
+      } catch (error) {
+        // Wallet not connected or not available
+        console.log('Wallet check error:', error);
+      }
+    };
+
+    // Check immediately
+    checkWalletConnection();
+
+    // Also check periodically in case wallet connects after page load (only if no wallet yet)
+    const interval = setInterval(() => {
+      if (!walletAddressRef.current) {
+        checkWalletConnection();
+      }
+    }, 2000);
+
+    // Listen for account changes
+    const handleAccountsChanged = async (accounts: string[]) => {
+      if (accounts.length > 0) {
+        const address = accounts[0];
+        walletAddressRef.current = address;
+        setWalletAddress(address);
+        await loadTokenBalance(null, address);
+      } else {
+        walletAddressRef.current = null;
+        setWalletAddress(null);
+        setUserBalance(0);
+        setIsEligible(false);
+      }
+    };
+
+    window.ethereum.on('accountsChanged', handleAccountsChanged);
+
+    // Also listen for connect event
+    window.ethereum.on('connect', checkWalletConnection);
+
+    return () => {
+      clearInterval(interval);
+      window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
+      window.ethereum?.removeListener('connect', checkWalletConnection);
+    };
+  }, [loadTokenBalance]); // Remove walletAddress from deps to avoid loops
 
   useEffect(() => {
     const loadLeaderboard = async () => {
@@ -302,14 +373,14 @@ export default function LeaderboardPage() {
                   walletAddress={walletAddress}
                   balance={userBalance}
                   isEligible={isEligible}
-                  threshold={ELIGIBILITY_THRESHOLD}
+                  threshold={eligibilityThreshold}
                   isLoadingBalance={isLoadingBalance}
                   fid={userFid}
                 />
                 <MintNFT
                   hasEnoughTokens={isEligible}
                   balance={userBalance}
-                  threshold={ELIGIBILITY_THRESHOLD}
+                  threshold={eligibilityThreshold}
                 />
                 <MemeOfTheWeek
                   winner={leaderboard[0]}
