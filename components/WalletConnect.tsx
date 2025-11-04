@@ -14,14 +14,15 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
   const [isConnecting, setIsConnecting] = useState(false)
   const { isInFarcaster, isLoading } = useFarcasterContext()
 
-  // Don't render anything if in Farcaster miniapp - WalletConnect only works on website
-  if (isLoading || isInFarcaster) {
-    return null
-  }
-
   // Listen for account changes ONLY - don't check or prompt automatically
   // This is passive - only listens for changes, doesn't initiate connections
+  // Only run when NOT in Farcaster miniapp
   useEffect(() => {
+    // Don't do anything if in Farcaster or still loading
+    if (isLoading || isInFarcaster) {
+      return
+    }
+
     // Only listen for account changes - don't check or prompt automatically
     if (typeof window !== 'undefined' && window.ethereum) {
       const handleAccountsChanged = (accounts: string[]) => {
@@ -40,7 +41,12 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
         window.ethereum.removeListener('accountsChanged', handleAccountsChanged)
       }
     }
-  }, [onConnect])
+  }, [onConnect, isInFarcaster, isLoading])
+
+  // Don't render anything if in Farcaster miniapp - WalletConnect only works on website
+  if (isLoading || isInFarcaster) {
+    return null
+  }
 
   const handleConnect = async () => {
     if (typeof window === 'undefined' || !window.ethereum) {
