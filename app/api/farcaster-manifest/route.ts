@@ -1,13 +1,21 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Get the host from the request - handles both www and non-www
+  const host = req.headers.get('host') || 'badtraders.xyz';
+  const protocol = req.headers.get('x-forwarded-proto') || 'https';
+  const baseUrl = `${protocol}://${host}`;
+  
+  // Normalize domain - remove www for canonicalDomain but keep it in URLs
+  const canonicalDomain = host.replace(/^www\./, '');
+  
   const manifest = {
     miniapp: {
       version: "1",
       name: "Bad Traders",
       iconUrl: "https://badtraders.xyz/icon.jpg",
       homeUrl: "https://badtraders.xyz",
-      canonicalDomain: "badtraders.xyz",
+      canonicalDomain: canonicalDomain,
       splashImageUrl: "https://badtraders.xyz/badtraders.png",
       splashBackgroundColor: "#8A63D2",
       imageUrl: "https://badtraders.xyz/og-image.jpg",

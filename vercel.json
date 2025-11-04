@@ -5,30 +5,6 @@
       "destination": "/api/farcaster-manifest"
     }
   ],
-  "redirects": [
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.badtraders.xyz"
-        }
-      ],
-      "destination": "https://badtraders.xyz/:path*",
-      "permanent": true
-    },
-    {
-      "source": "/.well-known/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "badtraders.xyz"
-        }
-      ],
-      "destination": "/.well-known/:path*",
-      "permanent": false
-    }
-  ],
   "headers": [
     {
       "source": "/api/farcaster-manifest",
