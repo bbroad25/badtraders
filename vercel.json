@@ -7,6 +7,17 @@
   ],
   "redirects": [
     {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.badtraders.xyz"
+        }
+      ],
+      "destination": "https://badtraders.xyz/:path*",
+      "permanent": true
+    },
+    {
       "source": "/.well-known/:path*",
       "has": [
         {
