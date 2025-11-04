@@ -3,31 +3,26 @@ import { NextResponse } from 'next/server';
 /**
  * Farcaster Mini App Manifest
  * Served at /.well-known/farcaster
- * This needs to be signed via Base Build's Preview tool with the new domain
+ * Must match the structure in .well-known/farcaster.json
  */
 export async function GET() {
   const manifest = {
-    accountAssociation: {
-      // This will be populated when you sign it via Base Build
-      // For now, returning the structure
-      domain: "badtraders.xyz",
-    },
-    // Base Build specific configuration
-    baseBuilder: {
-      // Will be set when signed
-    },
-    // Frame fallback
-    frame: {
-      version: "vNext",
+    miniapp: {
+      version: "1",
+      name: "Bad Traders",
+      iconUrl: "https://badtraders.xyz/icon.jpg",
+      homeUrl: "https://badtraders.xyz",
+      splashImageUrl: "https://badtraders.xyz/badtraders.png",
+      splashBackgroundColor: "#8A63D2",
       imageUrl: "https://badtraders.xyz/og-image.jpg",
-      button: {
-        action: {
-          type: "link",
-          target: "https://badtraders.xyz/leaderboard",
-        },
-        title: "Open Leaderboard",
-      },
+      tagline: "We trade bad but we fun good",
+      description: "Track the biggest weekly losses. The BadTrader competition leaderboard."
     },
+    accountAssociation: {
+      header: "eyJmaWQiOjcyMTIsInR5cGUiOiJhdXRoIiwia2V5IjoiMHg2QjVGNEViYzZDODUzMjA2RTJlNkMzMTliOWI3YzJGNUY2NGU2ODMxIn0",
+      payload: "eyJkb21haW4iOiJiYWR0cmFkZXJzLnZlcmNlbC5hcHAifQ",
+      signature: "scRafgqIzudsFQ6dpceLg4PY94tjZs6KPNfGjSvSK046iOLxDXF0ZC/FDIhAEGBbo1RvtazAsnzcq6/sjsOTmBs="
+    }
   };
 
   return NextResponse.json(manifest, {

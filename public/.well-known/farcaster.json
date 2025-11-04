@@ -1,18 +1,19 @@
 {
-  "accountAssociation": {
-    "domain": "badtraders.xyz"
-  },
-  "baseBuilder": {},
-  "frame": {
-    "version": "vNext",
+  "miniapp": {
+    "version": "1",
+    "name": "Bad Traders",
+    "iconUrl": "https://badtraders.xyz/icon.jpg",
+    "homeUrl": "https://badtraders.xyz",
+    "splashImageUrl": "https://badtraders.xyz/badtraders.png",
+    "splashBackgroundColor": "#8A63D2",
     "imageUrl": "https://badtraders.xyz/og-image.jpg",
-    "button": {
-      "action": {
-        "type": "link",
-        "target": "https://badtraders.xyz/leaderboard"
-      },
-      "title": "Open Leaderboard"
-    }
+    "tagline": "We trade bad but we fun good",
+    "description": "Track the biggest weekly losses. The BadTrader competition leaderboard."
+  },
+  "accountAssociation": {
+    "header": "eyJmaWQiOjcyMTIsInR5cGUiOiJhdXRoIiwia2V5IjoiMHg2QjVGNEViYzZDODUzMjA2RTJlNkMzMTliOWI3YzJGNUY2NGU2ODMxIn0",
+    "payload": "eyJkb21haW4iOiJiYWR0cmFkZXJzLnZlcmNlbC5hcHAifQ",
+    "signature": "scRafgqIzudsFQ6dpceLg4PY94tjZs6KPNfGjSvSK046iOLxDXF0ZC/FDIhAEGBbo1RvtazAsnzcq6/sjsOTmBs="
   }
 }
 
