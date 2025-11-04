@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
     },
     accountAssociation: {
       header: "eyJmaWQiOjcyMTIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhBODU1ZmFFNEZmY0M1OUM3N0M3NkRjZmEzYUJmREY3NEEyMzQ0YTE4In0",
-      payload: "eyJkb21haW4iOiJ3d3cuYmFkdHJhZGVycy54eXoifQ",
-      signature: "YDtfGSgFQEhKSRrTo6I+JoKS6KOSH8ijXgej/uNKsIwtnj8/gqHkMUySk9lk3CVIYBsl9VVhO433xHVHkNO6Fxs="
+      payload: "eyJkb21haW4iOiJiYWR0cmFkZXJzLnh5eiJ9",
+      signature: "UMNPzKG3f1sr1ZfgCKpuFhgFMhpodHLaIY+wrTTNXfQE8IbyzlXtDqKYSjTcLAMH9sYWOueC7UTvs2t2ViKJRRs="
     }
   };
 
