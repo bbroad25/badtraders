@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect } from "react"
-import { sdk } from "@farcaster/miniapp-sdk"
+import { sdk } from "@farcaster/miniapp-sdk";
+import { useEffect } from "react";
 
 /**
  * Initializes the Farcaster Mini App SDK for all pages
@@ -14,7 +14,7 @@ export default function FarcasterSDKInit() {
     // These are expected when running in Farcaster's CSP-restricted environment
     const originalError = console.error;
     const originalWarn = console.warn;
-    
+
     console.error = (...args: any[]) => {
       const message = args.join(' ');
       // Filter out harmless errors that are expected in Farcaster environment:
