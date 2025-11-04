@@ -148,45 +148,15 @@ export default function BadTradersLanding() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Empty deps - only run once on mount
 
-  // Listen for wallet connections from WalletConnect (website users)
+  // Listen for wallet account changes (website users only)
   // ONLY run this if NOT in Farcaster and not still loading Farcaster context
+  // This is passive - only listens for changes, doesn't initiate connections
   useEffect(() => {
     // Don't run wallet checks if in Farcaster or still loading
     if (isLoadingFarcaster || isInFarcaster) return
     if (typeof window === 'undefined' || !window.ethereum) return
 
-    const checkWalletConnection = async () => {
-      try {
-        const { ethers } = await import('ethers')
-        const provider = new ethers.BrowserProvider(window.ethereum)
-        const accounts = await provider.listAccounts()
-        if (accounts.length > 0) {
-          const address = accounts[0].address
-          // Only update if different or if we don't have one yet
-          if (!walletAddressRef.current || walletAddressRef.current.toLowerCase() !== address.toLowerCase()) {
-            walletAddressRef.current = address
-            setWalletAddress(address)
-            // Load balance for website user (no FID)
-            await loadTokenBalance(null, address)
-          }
-        }
-      } catch (error) {
-        // Wallet not connected or not available
-        console.log('Wallet check error:', error)
-      }
-    }
-
-    // Check immediately
-    checkWalletConnection()
-
-    // Also check periodically in case wallet connects after page load (only if no wallet yet)
-    const interval = setInterval(() => {
-      if (!walletAddressRef.current) {
-        checkWalletConnection()
-      }
-    }, 2000)
-
-    // Listen for account changes
+    // Only listen for account changes - don't check or prompt automatically
     const handleAccountsChanged = async (accounts: string[]) => {
       if (accounts.length > 0) {
         const address = accounts[0]
@@ -203,51 +173,57 @@ export default function BadTradersLanding() {
 
     window.ethereum.on('accountsChanged', handleAccountsChanged)
 
-    // Also listen for connect event
-    window.ethereum.on('connect', checkWalletConnection)
-
     return () => {
-      clearInterval(interval)
       window.ethereum?.removeListener('accountsChanged', handleAccountsChanged)
-      window.ethereum?.removeListener('connect', checkWalletConnection)
     }
   }, [loadTokenBalance, isInFarcaster, isLoadingFarcaster]) // Add Farcaster context to deps
 
   const handleConnectWallet = useCallback(async () => {
     try {
-      // First try to get FID from context
+      // First try to get FID from context (Farcaster users)
       const context = await sdk.context
       if (context?.user?.fid) {
         const fid = context.user.fid
         setUserFid(fid)
         await loadTokenBalance(fid)
+
+        // Also get wallet address for display - reuse cached provider if available
+        const ethProvider = providerRef.current || await sdk.wallet.getEthereumProvider()
+        if (ethProvider) {
+          // Cache it for future use
+          if (!providerRef.current) {
+            providerRef.current = ethProvider
+          }
+          try {
+            const accounts = await ethProvider.request({ method: 'eth_requestAccounts' })
+            if (accounts && accounts[0]) {
+              setWalletAddress(accounts[0])
+            }
+          } catch (e) {
+            console.log('Could not get wallet address:', e)
+          }
+        }
+        return
       }
 
-      // Also get wallet address for display - reuse cached provider if available
-      const ethProvider = providerRef.current || await sdk.wallet.getEthereumProvider()
-      if (ethProvider) {
-        // Cache it for future use
-        if (!providerRef.current) {
-          providerRef.current = ethProvider
-        }
-        try {
-          const accounts = await ethProvider.request({ method: 'eth_requestAccounts' })
-          if (accounts && accounts[0]) {
-            setWalletAddress(accounts[0])
-            // If no FID available, fallback to address-based lookup
-            if (!context?.user?.fid) {
-              await loadTokenBalance(null, accounts[0])
-            }
-          }
-        } catch (e) {
-          console.log('Could not get wallet address:', e)
-        }
+      // For website users (not in Farcaster), use browser wallet
+      if (typeof window !== 'undefined' && window.ethereum) {
+        const { ethers } = await import('ethers')
+        const provider = new ethers.BrowserProvider(window.ethereum)
+        await provider.send('eth_requestAccounts', [])
+        const signer = await provider.getSigner()
+        const address = await signer.getAddress()
+        walletAddressRef.current = address
+        setWalletAddress(address)
+        await loadTokenBalance(null, address)
       } else {
-        alert('Ethereum provider not available. Make sure you\'re using Farcaster client.')
+        alert('Please install a wallet extension like MetaMask or Phantom')
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error connecting wallet:', err)
-      alert('Failed to connect wallet. Please try again.')
+      if (err.code !== 4001) { // User rejected
+        alert('Failed to connect wallet. Please try again.')
+      }
     }
   }, [loadTokenBalance])
 

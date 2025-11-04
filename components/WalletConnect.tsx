@@ -14,33 +14,15 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
   const [isConnecting, setIsConnecting] = useState(false)
   const { isInFarcaster, isLoading } = useFarcasterContext()
 
-  // Check if wallet is already connected - ONLY if NOT in Farcaster
+  // Listen for account changes ONLY - don't check or prompt automatically
+  // This is passive - only listens for changes, doesn't initiate connections
   useEffect(() => {
     // Don't do anything if we're in Farcaster or still loading
     if (isLoading || isInFarcaster) {
       return
     }
 
-    const checkConnection = async () => {
-      if (typeof window !== 'undefined' && window.ethereum) {
-        try {
-          const provider = new ethers.BrowserProvider(window.ethereum)
-          const accounts = await provider.listAccounts()
-          if (accounts.length > 0) {
-            setAddress(accounts[0].address)
-            if (onConnect) {
-              onConnect(accounts[0].address)
-            }
-          }
-        } catch (error) {
-          console.log('No existing wallet connection')
-        }
-      }
-    }
-
-    checkConnection()
-
-    // Listen for account changes
+    // Only listen for account changes - don't check or prompt automatically
     if (typeof window !== 'undefined' && window.ethereum) {
       const handleAccountsChanged = (accounts: string[]) => {
         if (accounts.length > 0) {

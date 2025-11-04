@@ -19,7 +19,7 @@ export default function Navigation() {
     { href: "/leaderboard", label: "LEADERBOARD" },
     { href: "/users", label: "ALL USERS" },
     { href: "/coming-next", label: "COMING NEXT" },
-    { href: "/indexer", label: "INDEXER" },
+    // { href: "/indexer", label: "INDEXER" }, // Hidden for now
   ]
 
   const socialLinks = [

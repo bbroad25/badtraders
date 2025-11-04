@@ -133,8 +133,14 @@ Try it: ${miniappUrl}`,
   };
 
   const handleBuyTokens = async () => {
+    // On website, go to clanker.world
+    if (!isInFarcaster) {
+      window.open('https://clanker.world', '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // In Farcaster miniapp, use Farcaster SDK swapToken action
     try {
-      // Use Farcaster SDK swapToken action
       const result = await sdk.actions.swapToken({
         buyToken: 'eip155:8453/erc20:0x0774409Cda69A47f272907fd5D0d80173167BB07'
       });
@@ -143,20 +149,9 @@ Try it: ${miniappUrl}`,
         console.log('Swap initiated:', result.swap);
       } else {
         console.error('Swap failed:', result.reason, result.error);
-        // Fallback to warplet deep link
-        const warpletUrl = `warplet://swap?outputToken=eip155:8453/erc20:0x0774409Cda69A47f272907fd5D0d80173167BB07`;
-        if (onBuyMore) {
-          onBuyMore();
-        } else {
-          window.location.href = warpletUrl;
-        }
       }
     } catch (error: any) {
       console.error('Error opening swap:', error);
-      // Fallback to warplet deep link or callback
-      if (onBuyMore) {
-        onBuyMore();
-      }
     }
   };
 
