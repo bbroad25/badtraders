@@ -10,18 +10,44 @@ import { sdk } from "@farcaster/miniapp-sdk"
  */
 export default function FarcasterSDKInit() {
   useEffect(() => {
-    // Suppress harmless CORS errors from Farcaster wallet's Privy analytics
-    // These are just analytics events being blocked - they don't affect functionality
+    // Suppress harmless errors from Farcaster wallet's Privy/WalletConnect initialization
+    // These are expected when running in Farcaster's CSP-restricted environment
     const originalError = console.error;
+    const originalWarn = console.warn;
+    
     console.error = (...args: any[]) => {
       const message = args.join(' ');
-      // Filter out Privy analytics CORS errors - these are harmless and expected
-      if (message.includes('privy.farcaster.xyz/api/v1/analytics_events') ||
-          message.includes('Access-Control-Allow-Origin') && message.includes('privy.farcaster.xyz')) {
-        // Silently ignore these - they're just analytics noise from Farcaster wallet
+      // Filter out harmless errors that are expected in Farcaster environment:
+      // 1. Privy analytics CORS errors
+      // 2. WalletConnect CSP violations (Farcaster blocks WalletConnect explorer API)
+      // 3. Wallet proxy initialization errors (expected when WalletConnect is blocked)
+      if (
+        message.includes('privy.farcaster.xyz/api/v1/analytics_events') ||
+        (message.includes('Access-Control-Allow-Origin') && message.includes('privy.farcaster.xyz')) ||
+        message.includes('explorer-api.walletconnect.com') ||
+        message.includes('Content Security Policy') && message.includes('walletconnect') ||
+        message.includes('Wallet proxy not initialized') ||
+        message.includes('Failed to add embedded wallet connector') ||
+        message.includes('Connection interrupted while trying to subscribe') ||
+        message.includes('Failed to fetch') && message.includes('walletconnect')
+      ) {
+        // Silently ignore these - they're expected in Farcaster's CSP environment
         return;
       }
       originalError.apply(console, args);
+    };
+
+    console.warn = (...args: any[]) => {
+      const message = args.join(' ');
+      // Also filter WalletConnect warnings
+      if (
+        message.includes('explorer-api.walletconnect.com') ||
+        message.includes('Content Security Policy') && message.includes('walletconnect') ||
+        message.includes('Wallet proxy not initialized')
+      ) {
+        return;
+      }
+      originalWarn.apply(console, args);
     };
 
     const initFarcasterSDK = async () => {
@@ -73,8 +99,9 @@ export default function FarcasterSDKInit() {
     const timer = setTimeout(initFarcasterSDK, 500)
     return () => {
       clearTimeout(timer)
-      // Restore original console.error on unmount
+      // Restore original console methods on unmount
       console.error = originalError
+      console.warn = originalWarn
     }
   }, [])
 
