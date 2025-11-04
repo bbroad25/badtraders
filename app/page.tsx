@@ -13,7 +13,7 @@ const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000; // 2M for website users
 
 export default function BadTradersLanding() {
   console.log('[BadTraders] 🎯 BadTradersLanding component is rendering');
-  
+
   const [copied, setCopied] = useState(false)
   const [walletAddress, setWalletAddress] = useState<string | null>(null)
   const [userFid, setUserFid] = useState<number | null>(null)
