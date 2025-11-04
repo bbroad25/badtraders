@@ -34,7 +34,12 @@ export const generateLoserMeme = async (winner: LeaderboardEntry): Promise<strin
             throw new Error('Image generation failed to return an image.');
         }
 
-        const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
+        const firstImage = response.generatedImages[0];
+        if (!firstImage?.image?.imageBytes) {
+            throw new Error('Image generation failed to return valid image data.');
+        }
+
+        const base64ImageBytes: string = firstImage.image.imageBytes;
         return `data:image/jpeg;base64,${base64ImageBytes}`;
     } catch (error) {
         console.error("Error in Gemini image generation:", error);

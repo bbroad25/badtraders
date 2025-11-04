@@ -59,14 +59,14 @@ export default function IndexerPage() {
       // We'll need to create API endpoints for this
       // For now, we'll fetch from multiple endpoints
       const [walletsRes, tradesRes, positionsRes] = await Promise.all([
-        fetch('/api/indexer/wallets').catch(() => ({ ok: false })),
-        fetch('/api/indexer/trades?limit=10').catch(() => ({ ok: false })),
-        fetch('/api/indexer/positions').catch(() => ({ ok: false }))
+        fetch('/api/indexer/wallets').catch(() => ({ ok: false } as Response)),
+        fetch('/api/indexer/trades?limit=10').catch(() => ({ ok: false } as Response)),
+        fetch('/api/indexer/positions').catch(() => ({ ok: false } as Response))
       ])
 
-      const walletsData = walletsRes.ok ? await walletsRes.json() : { wallets: [] }
-      const tradesData = tradesRes.ok ? await tradesRes.json() : { trades: [] }
-      const positionsData = positionsRes.ok ? await positionsRes.json() : { positions: [] }
+      const walletsData = walletsRes.ok && 'json' in walletsRes ? await walletsRes.json() : { wallets: [] }
+      const tradesData = tradesRes.ok && 'json' in tradesRes ? await tradesRes.json() : { trades: [] }
+      const positionsData = positionsRes.ok && 'json' in positionsRes ? await positionsRes.json() : { positions: [] }
 
       setWallets(walletsData.wallets || [])
       setTrades(tradesData.trades || [])

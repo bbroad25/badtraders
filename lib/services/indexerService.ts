@@ -29,7 +29,8 @@ async function getCurrentBlockNumber(): Promise<number> {
   if (!provider) {
     throw new Error('Alchemy provider not available');
   }
-  return await provider.getBlockNumber();
+  const blockNumber = await provider.getBlockNumber();
+  return Number(blockNumber); // Convert bigint to number
 }
 
 /**
