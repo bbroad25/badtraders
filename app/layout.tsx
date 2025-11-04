@@ -3,7 +3,6 @@ import type { Metadata } from "next"
 import { Space_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import Script from "next/script"
-import FarcasterSDKInit from "@/components/FarcasterSDKInit"
 import Navigation from "@/components/Navigation"
 import "./globals.css"
 
@@ -77,7 +76,6 @@ export default function RootLayout({
         />
       </head>
       <body className={`${spaceMono.variable} font-mono antialiased`}>
-        <FarcasterSDKInit />
         <Navigation />
         {children}
         <Analytics />

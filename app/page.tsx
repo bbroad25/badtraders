@@ -27,7 +27,46 @@ export default function BadTradersLanding() {
   const walletAddressRef = useRef<string | null>(null)
   const { isInFarcaster, isLoading: isLoadingFarcaster } = useFarcasterContext()
 
-  // SDK initialization is now handled by FarcasterSDKInit component in layout
+  // Initialize Farcaster SDK and call ready - CRITICAL for dismissing splash screen
+  useEffect(() => {
+    const initializeSDK = async () => {
+      try {
+        console.log('[BadTraders] 🔄 Attempting to call sdk.actions.ready()...');
+
+        // Call ready() first to initialize the SDK
+        await sdk.actions.ready();
+        console.log('[BadTraders] ✅ Farcaster SDK ready() called successfully');
+
+        // Get the context to check if we're in Farcaster
+        const context = sdk.context;
+        console.log('[BadTraders] 📱 Farcaster context:', context);
+
+        // Try to trigger the add mini app modal if not added
+        try {
+          await sdk.actions.addMiniApp();
+          console.log('[BadTraders] ✅ Add mini app modal triggered');
+        } catch (addError: any) {
+          // User might have already added the app - this is normal
+          console.log('[BadTraders] ℹ️ Add mini app status:', addError?.message || 'Already added or not available');
+        }
+      } catch (error: any) {
+        console.error('[BadTraders] ❌ SDK ready() error:', error);
+        // Try calling it again as a fallback
+        try {
+          console.log('[BadTraders] 🔄 Retrying sdk.actions.ready()...');
+          await sdk.actions.ready();
+          console.log('[BadTraders] ✅ SDK ready() succeeded on retry');
+        } catch (retryError) {
+          console.error('[BadTraders] ❌ Retry also failed:', retryError);
+        }
+      }
+    };
+
+    // Call immediately and also after a short delay
+    initializeSDK();
+    const timer = setTimeout(initializeSDK, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const loadTokenBalance = useCallback(async (fid: number | null, address: string | null = null) => {
     setIsLoadingBalance(true)
