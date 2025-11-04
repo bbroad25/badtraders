@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { sdk } from '@farcaster/miniapp-sdk'
 import MyStatus from '@/components/leaderboard/MyStatus'
+import { useFarcasterContext } from '@/lib/hooks/useFarcasterContext'
 
 const FARCASTER_ELIGIBILITY_THRESHOLD = 1_000_000; // 1M for Farcaster miniapp users
 const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000; // 2M for website users
@@ -24,6 +25,7 @@ export default function BadTradersLanding() {
   const hasInitialized = useRef(false)
   const providerRef = useRef<any>(null)
   const walletAddressRef = useRef<string | null>(null)
+  const { isInFarcaster, isLoading: isLoadingFarcaster } = useFarcasterContext()
 
   // SDK initialization is now handled by FarcasterSDKInit component in layout
 
@@ -147,7 +149,10 @@ export default function BadTradersLanding() {
   }, []) // Empty deps - only run once on mount
 
   // Listen for wallet connections from WalletConnect (website users)
+  // ONLY run this if NOT in Farcaster and not still loading Farcaster context
   useEffect(() => {
+    // Don't run wallet checks if in Farcaster or still loading
+    if (isLoadingFarcaster || isInFarcaster) return
     if (typeof window === 'undefined' || !window.ethereum) return
 
     const checkWalletConnection = async () => {
@@ -206,7 +211,7 @@ export default function BadTradersLanding() {
       window.ethereum?.removeListener('accountsChanged', handleAccountsChanged)
       window.ethereum?.removeListener('connect', checkWalletConnection)
     }
-  }, [loadTokenBalance]) // Remove walletAddress from deps to avoid loops
+  }, [loadTokenBalance, isInFarcaster, isLoadingFarcaster]) // Add Farcaster context to deps
 
   const handleConnectWallet = useCallback(async () => {
     try {

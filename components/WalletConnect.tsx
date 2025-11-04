@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { ethers } from 'ethers'
+import { useFarcasterContext } from '@/lib/hooks/useFarcasterContext'
 
 interface WalletConnectProps {
   onConnect?: (address: string) => void
@@ -11,9 +12,15 @@ interface WalletConnectProps {
 export default function WalletConnect({ onConnect }: WalletConnectProps) {
   const [address, setAddress] = useState<string | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
+  const { isInFarcaster, isLoading } = useFarcasterContext()
 
-  // Check if wallet is already connected
+  // Check if wallet is already connected - ONLY if NOT in Farcaster
   useEffect(() => {
+    // Don't do anything if we're in Farcaster or still loading
+    if (isLoading || isInFarcaster) {
+      return
+    }
+
     const checkConnection = async () => {
       if (typeof window !== 'undefined' && window.ethereum) {
         try {
@@ -51,9 +58,14 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
         window.ethereum.removeListener('accountsChanged', handleAccountsChanged)
       }
     }
-  }, [onConnect])
+  }, [onConnect, isInFarcaster, isLoading])
 
   const handleConnect = async () => {
+    // Don't allow wallet connect if in Farcaster
+    if (isInFarcaster) {
+      return
+    }
+
     if (typeof window === 'undefined' || !window.ethereum) {
       alert('Please install a wallet extension like MetaMask')
       return
@@ -77,6 +89,11 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
     } finally {
       setIsConnecting(false)
     }
+  }
+
+  // Don't render anything if in Farcaster or still loading
+  if (isLoading || isInFarcaster) {
+    return null
   }
 
   const handleDisconnect = () => {
