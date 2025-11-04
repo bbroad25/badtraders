@@ -7,6 +7,7 @@ export async function GET() {
       name: "Bad Traders",
       iconUrl: "https://badtraders.xyz/icon.jpg",
       homeUrl: "https://badtraders.xyz",
+      canonicalDomain: "badtraders.xyz",
       splashImageUrl: "https://badtraders.xyz/badtraders.png",
       splashBackgroundColor: "#8A63D2",
       imageUrl: "https://badtraders.xyz/og-image.jpg",
