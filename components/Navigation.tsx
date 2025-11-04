@@ -96,7 +96,7 @@ export default function Navigation() {
                 </Link>
               )
             })}
-            {/* Wallet Connect - Desktop - Only show when NOT in Farcaster */}
+            {/* Wallet Connect - Desktop - Only show when NOT in Farcaster miniapp */}
             {!isLoadingFarcaster && !isInFarcaster && (
               <div className="hidden md:flex items-center ml-2">
                 <WalletConnect />
@@ -178,7 +178,7 @@ export default function Navigation() {
                 </Link>
               )
             })}
-            {/* Wallet Connect - Mobile - Only show when NOT in Farcaster */}
+            {/* Wallet Connect - Mobile - Only show when NOT in Farcaster miniapp */}
             {!isLoadingFarcaster && !isInFarcaster && (
               <div className="flex justify-center py-4 border-t-2 border-primary">
                 <WalletConnect />
