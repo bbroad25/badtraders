@@ -21,7 +21,7 @@ export default function FarcasterReady() {
         }
       }
     };
-    
+
     callReady();
     const timer = setTimeout(callReady, 500);
     return () => clearTimeout(timer);
