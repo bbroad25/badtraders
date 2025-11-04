@@ -6,8 +6,8 @@ export async function GET(req: NextRequest) {
   const protocol = req.headers.get('x-forwarded-proto') || 'https';
   const baseUrl = `${protocol}://${host}`;
   
-  // Normalize domain - remove www for canonicalDomain but keep it in URLs
-  const canonicalDomain = host.replace(/^www\./, '');
+  // Canonical domain is always the apex
+  const canonicalDomain = 'badtraders.xyz';
   
   const manifest = {
     miniapp: {
