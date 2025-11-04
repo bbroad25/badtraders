@@ -5,6 +5,19 @@
       "destination": "/api/farcaster-manifest"
     }
   ],
+  "redirects": [
+    {
+      "source": "/.well-known/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "badtraders.xyz"
+        }
+      ],
+      "destination": "/.well-known/:path*",
+      "permanent": false
+    }
+  ],
   "headers": [
     {
       "source": "/api/farcaster-manifest",
