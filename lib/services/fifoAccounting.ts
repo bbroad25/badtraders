@@ -37,6 +37,7 @@ export async function getPosition(
 
 /**
  * Process a BUY transaction - add to position with cost basis
+ * Uses UPSERT to handle race conditions from parallel processing
  */
 export async function processBuy(
   walletAddress: string,
@@ -50,30 +51,17 @@ export async function processBuy(
     const tokenAddr = tokenAddress.toLowerCase();
     const amountStr = amount.toString();
 
-    // Get current position
-    const currentPosition = await getPosition(walletAddress, tokenAddress);
-
-    if (currentPosition) {
-      // Update existing position
-      const newRemainingAmount = BigInt(currentPosition.remaining_amount) + amount;
-      const newCostBasis = parseFloat(currentPosition.cost_basis_usd) + costBasis;
-
-      await query(
-        `UPDATE positions
-         SET remaining_amount = $1,
-             cost_basis_usd = $2,
-             updated_at = NOW()
-         WHERE wallet_address = $3 AND token_address = $4`,
-        [newRemainingAmount.toString(), newCostBasis.toFixed(8), walletAddr, tokenAddr]
-      );
-    } else {
-      // Create new position
-      await query(
-        `INSERT INTO positions (wallet_address, token_address, remaining_amount, cost_basis_usd, realized_pnl_usd, updated_at)
-         VALUES ($1, $2, $3, $4, 0, NOW())`,
-        [walletAddr, tokenAddr, amountStr, costBasis.toFixed(8)]
-      );
-    }
+    // Use UPSERT to handle race conditions - if position exists, update it atomically
+    await query(
+      `INSERT INTO positions (wallet_address, token_address, remaining_amount, cost_basis_usd, realized_pnl_usd, updated_at)
+       VALUES ($1, $2, $3, $4, 0, NOW())
+       ON CONFLICT (wallet_address, token_address)
+       DO UPDATE SET
+         remaining_amount = positions.remaining_amount + $3,
+         cost_basis_usd = positions.cost_basis_usd + $4,
+         updated_at = NOW()`,
+      [walletAddr, tokenAddr, amountStr, costBasis.toFixed(8)]
+    );
   } catch (error) {
     console.error('Error processing buy:', error);
     throw error;
@@ -83,20 +71,23 @@ export async function processBuy(
 /**
  * Process a SELL transaction - remove FIFO, calculate realized PnL
  * Returns the realized PnL in USD
+ * @param position - Optional position object to avoid redundant DB query (if already fetched)
  */
 export async function processSell(
   walletAddress: string,
   tokenAddress: string,
   amount: bigint,
-  priceUsd: number
+  priceUsd: number,
+  tokenDecimals: number = 18,
+  position?: Position | null
 ): Promise<number> {
   try {
     const walletAddr = walletAddress.toLowerCase();
     const tokenAddr = tokenAddress.toLowerCase();
     const sellAmount = amount;
 
-    // Get current position
-    const currentPosition = await getPosition(walletAddress, tokenAddress);
+    // Get current position if not provided
+    const currentPosition = position ?? await getPosition(walletAddress, tokenAddress);
 
     if (!currentPosition) {
       console.warn(`No position found for ${walletAddress} / ${tokenAddress}`);
@@ -112,9 +103,9 @@ export async function processSell(
       return 0;
     }
 
-    // Calculate how much we're selling
+    // Calculate how much we're selling - use correct decimals
     const sellAmountToProcess = sellAmount > remainingAmount ? remainingAmount : sellAmount;
-    const sellValueUsd = Number(ethers.formatUnits(sellAmountToProcess, 18)) * priceUsd;
+    const sellValueUsd = Number(ethers.formatUnits(sellAmountToProcess, tokenDecimals)) * priceUsd;
 
     // Calculate cost basis proportion
     const costBasisProportion = Number(sellAmountToProcess) / Number(remainingAmount);
@@ -158,7 +149,7 @@ export async function processSell(
       );
     }
 
-    return realizedPnLForSell;
+    return newRealizedPnL;
   } catch (error) {
     console.error('Error processing sell:', error);
     throw error;
@@ -171,7 +162,8 @@ export async function processSell(
 export async function calculateUnrealizedPnL(
   walletAddress: string,
   tokenAddress: string,
-  currentPrice: number
+  currentPrice: number,
+  tokenDecimals: number = 18
 ): Promise<number> {
   try {
     const position = await getPosition(walletAddress, tokenAddress);
@@ -180,7 +172,8 @@ export async function calculateUnrealizedPnL(
       return 0;
     }
 
-    const remainingAmount = Number(ethers.formatUnits(position.remaining_amount, 18));
+    // Use correct decimals for calculation
+    const remainingAmount = Number(ethers.formatUnits(position.remaining_amount, tokenDecimals));
     const currentValue = remainingAmount * currentPrice;
     const costBasis = parseFloat(position.cost_basis_usd);
 

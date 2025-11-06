@@ -181,17 +181,10 @@ export default function LeaderboardPage() {
       }
     };
 
-    // Check immediately
+    // Check immediately ONCE on mount (passive check - only reads existing connection)
     checkWalletConnection();
 
-    // Also check periodically in case wallet connects after page load (only if no wallet yet)
-    const interval = setInterval(() => {
-      if (!walletAddressRef.current) {
-        checkWalletConnection();
-      }
-    }, 2000);
-
-    // Listen for account changes
+    // Listen for account changes (passive - only fires when user manually changes accounts)
     const handleAccountsChanged = async (accounts: string[]) => {
       if (accounts.length > 0) {
         const address = accounts[0];
@@ -208,11 +201,10 @@ export default function LeaderboardPage() {
 
     window.ethereum.on('accountsChanged', handleAccountsChanged);
 
-    // Also listen for connect event
+    // Listen for connect event (passive - only fires when wallet connects)
     window.ethereum.on('connect', checkWalletConnection);
 
     return () => {
-      clearInterval(interval);
       window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
       window.ethereum?.removeListener('connect', checkWalletConnection);
     };

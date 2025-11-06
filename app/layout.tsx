@@ -1,17 +1,13 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Space_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import Script from "next/script"
 import FarcasterSDKInit from "@/components/FarcasterSDKInit"
 import Navigation from "@/components/Navigation"
 import "./globals.css"
 
-const spaceMono = Space_Mono({
-  weight: ["400", "700"],
-  subsets: ["latin"],
-  variable: "--font-space-mono",
-})
+// Use local font fallback instead of Google Fonts to avoid network spam
+// Space Mono is already defined in globals.css as a fallback
 
 export const metadata: Metadata = {
   title: "$BADTRADERS - For Traders Who Can't Trade",
@@ -73,7 +69,7 @@ export default function RootLayout({
           })}
         />
       </head>
-      <body className={`${spaceMono.variable} font-mono antialiased`}>
+      <body className="font-mono antialiased">
         <FarcasterSDKInit />
         <Navigation />
         {children}

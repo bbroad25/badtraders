@@ -1,9 +1,27 @@
 {
-  "crons": [
+  "rewrites": [
     {
-      "path": "/api/cron/indexer",
-      "schedule": "0 */12 * * *"
+      "source": "/.well-known/farcaster.json",
+      "destination": "/api/farcaster-manifest"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/farcaster-manifest",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
     }
   ]
 }
-

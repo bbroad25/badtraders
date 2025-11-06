@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { syncAllWallets } from '@/lib/services/indexerService';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
 /**
  * Vercel Cron endpoint for indexer sync
- * Runs every 12 hours to sync all registered wallets
+ * Runs every 12 hours to sync all tokens
+ * Calls the main sync endpoint instead of legacy indexerService
  */
 export async function GET(request: NextRequest) {
   try {
@@ -33,42 +33,60 @@ export async function GET(request: NextRequest) {
     console.log('Starting indexer sync (cron)...');
     const startTime = Date.now();
 
-    // Set a timeout to prevent jobs from running too long (Vercel has 10s timeout for Hobby, 60s for Pro)
-    // Use 50 seconds to be safe
-    const TIMEOUT_MS = 50 * 1000;
+    // Call the main sync endpoint instead of legacy service
+    // Sync uses incremental by default
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Indexer sync timeout')), TIMEOUT_MS);
-    });
-
-    // Run sync with timeout
     try {
-      await Promise.race([
-        syncAllWallets(),
-        timeoutPromise
-      ]);
+      const syncResponse = await fetch(`${baseUrl}/api/indexer/sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${CRON_SECRET}`
+        },
+        body: JSON.stringify({
+          syncType: 'incremental',
+          secret: CRON_SECRET
+        })
+      });
+
+      if (!syncResponse.ok) {
+        const errorData = await syncResponse.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `Sync failed with status ${syncResponse.status}`);
+      }
+
+      const syncData = await syncResponse.json();
+      const duration = Date.now() - startTime;
+
+      console.log(`Indexer sync completed in ${duration}ms`);
+
+      return NextResponse.json({
+        success: true,
+        message: 'Indexer sync completed',
+        swapsProcessed: syncData.swapsProcessed || 0,
+        walletsFound: syncData.walletsFound || 0,
+        duration: `${duration}ms`,
+        timestamp: new Date().toISOString()
+      });
     } catch (error: any) {
-      if (error.message === 'Indexer sync timeout') {
-        console.warn('Indexer sync timed out - partial sync may have completed');
+      // Handle timeout or other errors
+      const duration = Date.now() - startTime;
+      console.error('Error in indexer sync:', error);
+
+      // If timeout, return 200 so cron doesn't retry immediately
+      if (error.message?.includes('timeout') || duration > 50000) {
         return NextResponse.json({
           success: false,
           message: 'Indexer sync timed out (partial sync may have completed)',
-          duration: `${Date.now() - startTime}ms`,
+          duration: `${duration}ms`,
           timestamp: new Date().toISOString()
-        }, { status: 200 }); // Return 200 so cron doesn't retry immediately
+        }, { status: 200 });
       }
+
       throw error;
     }
-
-    const duration = Date.now() - startTime;
-    console.log(`Indexer sync completed in ${duration}ms`);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Indexer sync completed',
-      duration: `${duration}ms`,
-      timestamp: new Date().toISOString()
-    });
   } catch (error: any) {
     console.error('Error in indexer cron:', error);
     return NextResponse.json(
