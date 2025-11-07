@@ -286,10 +286,14 @@ export default function BadTradersLanding() {
 
       <div className="relative z-10">
         {/* Hero Section */}
-        <section className="min-h-screen flex flex-col items-center justify-center px-4 py-12 border-b-4 border-primary">
+        <section className="min-h-screen flex flex-col items-center justify-center px-2 sm:px-4 py-12 border-b-4 border-primary">
           <div className="max-w-5xl w-full text-center space-y-8">
             <div className="space-y-4">
-              <h1 className="text-7xl md:text-9xl font-bold text-primary uppercase tracking-tighter text-balance">
+              <h1 className={`font-bold text-primary uppercase tracking-tighter break-words px-2 ${
+                isInFarcaster 
+                  ? "text-3xl sm:text-4xl md:text-5xl" 
+                  : "text-4xl sm:text-5xl md:text-7xl lg:text-9xl"
+              }`}>
                 $BADTRADERS
               </h1>
               <div className="flex items-center justify-center gap-4 text-4xl md:text-6xl">

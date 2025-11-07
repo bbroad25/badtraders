@@ -63,27 +63,27 @@ export default function Navigation() {
   }
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background border-b-4 border-primary shadow-[0_4px_0px_0px_rgba(147,51,234,1)]">
-      <div className="max-w-7xl mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-background border-b-4 border-primary shadow-[0_4px_0px_0px_rgba(147,51,234,1)] overflow-x-hidden">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-3">
+        <div className="flex items-center justify-between gap-2 min-w-0">
           <Link
             href="/"
-            className="text-2xl md:text-3xl font-bold text-primary uppercase tracking-tight hover:opacity-80 transition-opacity"
+            className="text-xl sm:text-2xl md:text-3xl font-bold text-primary uppercase tracking-tight hover:opacity-80 transition-opacity whitespace-nowrap flex-shrink-0"
             onClick={() => setIsMenuOpen(false)}
           >
             $BADTRADERS
           </Link>
 
           {/* Desktop Navigation - Hidden on mobile */}
-          <div className="hidden md:flex items-center gap-2 md:gap-4">
+          <div className="hidden md:flex items-center gap-1 lg:gap-2 xl:gap-4 min-w-0 flex-1 justify-end">
             {navItems.map((item) => {
               const isActive = pathname === item.href || (item.href === "/" && pathname === "/")
               return (
-                <Link key={item.href} href={item.href}>
+                <Link key={item.href} href={item.href} className="flex-shrink-0">
                   <Button
                     variant={isActive ? "default" : "outline"}
                     className={`
-                      text-sm md:text-base font-bold uppercase border-2
+                      text-xs lg:text-sm xl:text-base font-bold uppercase border-2 whitespace-nowrap
                       ${isActive
                         ? "bg-primary text-primary-foreground border-primary shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                         : "bg-secondary text-secondary-foreground border-primary hover:bg-accent hover:text-accent-foreground shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
@@ -98,12 +98,12 @@ export default function Navigation() {
             })}
             {/* Wallet Connect - Desktop - Only show when NOT in Farcaster miniapp */}
             {!isLoadingFarcaster && !isInFarcaster && (
-              <div className="hidden md:flex items-center ml-2">
+              <div className="hidden md:flex items-center ml-1 lg:ml-2 flex-shrink-0">
                 <WalletConnect />
               </div>
             )}
             {/* Social Icons - Desktop */}
-            <div className="hidden md:flex items-center gap-2 ml-2 pl-2 border-l-2 border-primary">
+            <div className="hidden md:flex items-center gap-1 lg:gap-2 ml-1 lg:ml-2 pl-1 lg:pl-2 border-l-2 border-primary flex-shrink-0">
               {socialLinks.map((social) => {
                 const IconComponent = social.icon
                 return (
