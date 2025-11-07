@@ -87,7 +87,7 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
       <Button
         onClick={handleConnect}
         disabled={isConnecting}
-        className="text-sm md:text-base font-bold uppercase border-2 bg-secondary text-secondary-foreground border-primary hover:bg-accent hover:text-accent-foreground shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+        className="text-xs xl:text-sm font-bold uppercase border-2 bg-secondary text-secondary-foreground border-primary hover:bg-accent hover:text-accent-foreground shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] px-2 xl:px-3 py-1.5 whitespace-nowrap"
       >
         {isConnecting ? 'Connecting...' : 'Connect Wallet'}
       </Button>
@@ -96,13 +96,13 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sm font-mono text-foreground hidden md:inline">
+      <span className="text-xs xl:text-sm font-mono text-foreground hidden lg:inline">
         {formatAddress(address)}
       </span>
       <Button
         onClick={handleDisconnect}
         variant="outline"
-        className="text-sm md:text-base font-bold uppercase border-2 border-primary hover:bg-accent hover:text-accent-foreground shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+        className="text-xs xl:text-sm font-bold uppercase border-2 border-primary hover:bg-accent hover:text-accent-foreground shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] px-2 xl:px-3 py-1.5"
       >
         Disconnect
       </Button>
