@@ -3,7 +3,7 @@ import { query } from '@/lib/db/connection';
 
 /**
  * GET /api/notifications/check?fid=123
- * 
+ *
  * Check if a user has notifications enabled (has a token stored)
  */
 export async function GET(request: NextRequest) {

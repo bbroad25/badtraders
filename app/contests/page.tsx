@@ -389,9 +389,9 @@ export default function ContestsPage() {
 
       if (response.ok) {
         // Show success message with clear notification
-        setMessage({ 
-          type: 'success', 
-          text: `✅ Successfully entered contest! Your wallet is being indexed. This may take a few moments...` 
+        setMessage({
+          type: 'success',
+          text: `✅ Successfully entered contest! Your wallet is being indexed. This may take a few moments...`
         });
 
         // Immediately load position to show "indexing" status
@@ -409,9 +409,9 @@ export default function ContestsPage() {
               const checkData = await checkResponse.json();
               if (checkData.position?.status === 'indexed') {
                 clearInterval(pollInterval);
-                setMessage({ 
-                  type: 'success', 
-                  text: `🎉 Indexing complete! Your trades have been analyzed. Check your position below.` 
+                setMessage({
+                  type: 'success',
+                  text: `🎉 Indexing complete! Your trades have been analyzed. Check your position below.`
                 });
                 await loadPosition(); // Refresh position display
               }
@@ -500,7 +500,7 @@ export default function ContestsPage() {
                 const isSelected = selectedContest?.id === contest.id;
                 // Check if registered for THIS specific contest
                 const isRegistered = isSelected && position !== null;
-                
+
                 return (
                   <div
                     key={contest.id}

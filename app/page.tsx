@@ -110,7 +110,7 @@ export default function BadTradersLanding() {
           setIsCheckingNotifications(true)
           const response = await fetch(`/api/notifications/check?fid=${userFid}`)
           const data = await response.json()
-          
+
           if (data.success) {
             setNotificationStatus({
               hasNotifications: data.hasNotifications,
@@ -257,7 +257,7 @@ export default function BadTradersLanding() {
       setIsCheckingNotifications(true)
       const response = await fetch(`/api/notifications/check?fid=${userFid}`)
       const data = await response.json()
-      
+
       if (data.success) {
         setNotificationStatus({
           hasNotifications: data.hasNotifications,
@@ -319,7 +319,7 @@ export default function BadTradersLanding() {
                 <p className="text-xs md:text-sm text-muted-foreground mb-4 text-center">
                   Get notified about contest updates, leaderboard changes, and more. We promise not to abuse them! 🙏
                 </p>
-                
+
                 {/* Notification Status */}
                 {notificationStatus !== null && (
                   <div className={`mb-4 p-2 rounded border-2 text-center text-xs ${
