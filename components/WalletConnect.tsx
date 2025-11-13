@@ -13,16 +13,11 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
   const [isConnecting, setIsConnecting] = useState(false)
   const { isInFarcaster, isLoading } = useFarcasterContext()
 
-  // Early return - don't do ANYTHING if in Farcaster (including loading ethers)
-  if (isLoading || isInFarcaster) {
-    return null
-  }
-
   // Listen for account changes ONLY - don't check or prompt automatically
   // This is passive - only listens for changes, doesn't initiate connections
   // Only run when NOT in Farcaster miniapp
   useEffect(() => {
-    // Double-check - should never reach here if in Farcaster due to early return above
+    // Don't do anything if in Farcaster or still loading
     if (isLoading || isInFarcaster) {
       return
     }
@@ -46,6 +41,11 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
       }
     }
   }, [onConnect, isInFarcaster, isLoading])
+
+  // Early return AFTER all hooks - don't render if in Farcaster
+  if (isLoading || isInFarcaster) {
+    return null
+  }
 
   const handleConnect = async () => {
     if (typeof window === 'undefined' || !window.ethereum) {
