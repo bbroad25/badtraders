@@ -1,73 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { query } from '@/lib/db/connection';
 
 /**
  * POST /api/webhooks/farcaster
  *
- * Webhook endpoint to handle Farcaster notification enable/disable events
- * When users toggle notifications in the hamburger menu, Farcaster sends events here
+ * Webhook endpoint to handle Farcaster notification events
+ * According to Farcaster docs: https://miniapps.farcaster.xyz/docs/guides/notifications
  *
- * Webhook payload structure (from Farcaster SDK):
- * {
- *   event: 'notification.enabled' | 'notification.disabled' | 'miniapp_added',
- *   fid: number,
- *   token?: string,  // Notification token (provided when enabled)
- *   url?: string     // Notification URL (provided when enabled)
- * }
+ * Event formats:
+ * - miniapp_added: { event: "miniapp_added", notificationDetails: { token, url } }
+ * - notifications_enabled: { event: "notifications_enabled", notificationDetails: { token, url } }
+ * - notifications_disabled: { event: "notifications_disabled" }
+ * - miniapp_removed: { event: "miniapp_removed" }
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { event, fid, token, url } = body;
+    const { event, notificationDetails } = body;
 
     console.log('📬 Farcaster notification webhook:', {
       event,
-      fid,
-      token: token ? '***' : undefined,
-      url
+      hasNotificationDetails: !!notificationDetails
     });
 
-    if (!event || !fid) {
+    if (!event) {
       return NextResponse.json(
-        { error: 'event and fid are required' },
+        { error: 'event is required' },
         { status: 400 }
       );
     }
 
-    // Handle different event types
-    if (event === 'notification.enabled') {
-      if (!token || !url) {
+    // Extract FID from the signed event (would need verification in production)
+    // For now, we'll need to get it from the body or verify the signature
+    // The actual webhook format includes signed data - we'd need to verify it
+    // But for now, let's handle the basic structure
+
+    if (event === 'miniapp_added' || event === 'notifications_enabled') {
+      if (!notificationDetails || !notificationDetails.token || !notificationDetails.url) {
         return NextResponse.json(
-          { error: 'token and url are required for notification.enabled event' },
+          { error: 'notificationDetails with token and url are required' },
           { status: 400 }
         );
       }
 
-      // For now, we just log it since Neynar manages tokens automatically
-      // But we could store this in the database if needed for tracking
-      console.log(`✅ Notifications enabled for FID ${fid}`);
+      // TODO: Extract FID from signed event data and verify signature
+      // For now, we'll need to get FID from the verified event
+      // This requires using @farcaster/miniapp-node to verify the webhook
+
+      console.log(`✅ Notifications enabled - token received`);
+      // Store token when we have verified FID
+      // await query(
+      //   `INSERT INTO notification_tokens (fid, token, url, created_at, updated_at)
+      //    VALUES ($1, $2, $3, NOW(), NOW())
+      //    ON CONFLICT (fid, token) DO UPDATE SET url = $3, updated_at = NOW()`,
+      //   [fid, notificationDetails.token, notificationDetails.url]
+      // );
 
       return NextResponse.json({
         success: true,
-        message: 'Notification enabled',
-        fid
+        message: 'Notification token received'
       });
-    } else if (event === 'notification.disabled') {
-      // Mark notifications as disabled for this user
-      console.log(`❌ Notifications disabled for FID ${fid}`);
+    } else if (event === 'notifications_disabled' || event === 'miniapp_removed') {
+      // TODO: Remove tokens for this user when we have verified FID
+      console.log(`❌ Notifications disabled or miniapp removed`);
 
       return NextResponse.json({
         success: true,
-        message: 'Notification disabled',
-        fid
-      });
-    } else if (event === 'miniapp_added') {
-      // User added the miniapp
-      console.log(`📱 Miniapp added for FID ${fid}`);
-
-      return NextResponse.json({
-        success: true,
-        message: 'Miniapp added',
-        fid
+        message: 'Notification disabled'
       });
     } else {
       console.warn(`⚠️ Unknown event type: ${event}`);

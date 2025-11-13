@@ -40,6 +40,25 @@ export default function AdminPage() {
   const [isLoadingEntries, setIsLoadingEntries] = useState(true)
   const [loserboardMessage, setLoserboardMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
+  // Eligibility cleanup state
+  const [isRunningCleanup, setIsRunningCleanup] = useState(false)
+  const [cleanupMessage, setCleanupMessage] = useState<{ type: "success" | "error"; text: string; details?: any } | null>(null)
+  const [removeFromIndexing, setRemoveFromIndexing] = useState(true)
+
+  // Voting period creation state
+  const [votingEndDate, setVotingEndDate] = useState("")
+  const [isCreatingVotingPeriod, setIsCreatingVotingPeriod] = useState(false)
+  const [votingMessage, setVotingMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  // Contest creation state
+  const [contestTokenAddress, setContestTokenAddress] = useState("")
+  const [contestTokenSymbol, setContestTokenSymbol] = useState("")
+  const [contestStartDate, setContestStartDate] = useState("")
+  const [contestEndDate, setContestEndDate] = useState("")
+  const [isCreatingContest, setIsCreatingContest] = useState(false)
+  const [contestMessage, setContestMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+
   // Redirect if not admin
   useEffect(() => {
     if (!isLoadingAdmin && !isLoadingFarcaster && !isAdmin) {
@@ -240,6 +259,150 @@ export default function AdminPage() {
     }
   }
 
+  const handleRunCleanup = async () => {
+    setCleanupMessage(null)
+
+    if (!currentFid) {
+      setCleanupMessage({ type: "error", text: "Unable to get your FID. Please ensure you're logged in via Farcaster." })
+      return
+    }
+
+    setIsRunningCleanup(true)
+    try {
+      const response = await fetch(
+        `/api/admin/cleanup-eligibility?fid=${currentFid}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            removeFromIndexing
+          })
+        }
+      )
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setCleanupMessage({
+          type: "success",
+          text: data.message || "Cleanup completed successfully!",
+          details: data.result
+        })
+        // Clear message after 10 seconds
+        setTimeout(() => setCleanupMessage(null), 10000)
+      } else {
+        setCleanupMessage({ type: "error", text: `Failed to run cleanup: ${data.error || "Unknown error"}` })
+      }
+    } catch (error: any) {
+      console.error("Error running cleanup:", error)
+      setCleanupMessage({ type: "error", text: `Error: ${error.message || "Failed to run cleanup"}` })
+    } finally {
+      setIsRunningCleanup(false)
+    }
+  }
+
+  const handleCreateContest = async () => {
+    setContestMessage(null)
+
+    if (!currentFid) {
+      setContestMessage({ type: "error", text: "Unable to get your FID. Please ensure you're logged in via Farcaster." })
+      return
+    }
+
+    if (!contestTokenAddress || !contestStartDate || !contestEndDate) {
+      setContestMessage({ type: "error", text: "Please fill in token address, start date, and end date" })
+      return
+    }
+
+    setIsCreatingContest(true)
+    try {
+      const response = await fetch(
+        `/api/admin/contests/create?fid=${currentFid}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tokenAddress: contestTokenAddress,
+            tokenSymbol: contestTokenSymbol || null,
+            startDate: contestStartDate,
+            endDate: contestEndDate
+          })
+        }
+      )
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setContestMessage({ type: "success", text: data.message || "Contest created successfully!" })
+        setContestTokenAddress("")
+        setContestTokenSymbol("")
+        setContestStartDate("")
+        setContestEndDate("")
+        setTimeout(() => setContestMessage(null), 5000)
+      } else {
+        setContestMessage({ type: "error", text: `Failed to create contest: ${data.error || "Unknown error"}` })
+      }
+    } catch (error: any) {
+      console.error("Error creating contest:", error)
+      setContestMessage({ type: "error", text: `Error: ${error.message || "Failed to create contest"}` })
+    } finally {
+      setIsCreatingContest(false)
+    }
+  }
+
+  const handleCreateVotingPeriod = async () => {
+    setVotingMessage(null)
+
+    if (!currentFid) {
+      setVotingMessage({ type: "error", text: "Unable to get your FID. Please ensure you're logged in via Farcaster." })
+      return
+    }
+
+    if (!votingEndDate) {
+      setVotingMessage({ type: "error", text: "Please select an end date" })
+      return
+    }
+
+    setIsCreatingVotingPeriod(true)
+    try {
+      // Create voting period with BadTraders token as the first option
+      const response = await fetch(
+        `/api/admin/votes/create-period?fid=${currentFid}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            endDate: votingEndDate,
+            options: [
+              {
+                tokenAddress: "0x0774409cda69a47f272907fd5d0d80173167bb07", // BadTraders token
+                tokenSymbol: "BADTRADERS",
+                tokenName: "BadTraders Token",
+                description: "The official BadTraders token - vote for your own token!"
+              }
+            ]
+          })
+        }
+      )
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setVotingMessage({ type: "success", text: data.message || "Voting period created successfully!" })
+        setVotingEndDate("")
+        setTimeout(() => setVotingMessage(null), 5000)
+      } else {
+        setVotingMessage({ type: "error", text: `Failed to create voting period: ${data.error || "Unknown error"}` })
+      }
+    } catch (error: any) {
+      console.error("Error creating voting period:", error)
+      setVotingMessage({ type: "error", text: `Error: ${error.message || "Failed to create voting period"}` })
+    } finally {
+      setIsCreatingVotingPeriod(false)
+    }
+  }
+
+
   if (isLoadingAdmin || isLoadingFarcaster) {
     return (
       <div className="min-h-screen bg-background pt-20 pb-10 px-4">
@@ -414,6 +577,193 @@ export default function AdminPage() {
                   {loserboardMessage.type === "success" ? "✓ " : "✗ "}
                   {loserboardMessage.text}
                 </p>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Contest Management Section */}
+        <Card className="p-6 mb-6">
+          <h2 className="text-2xl font-bold mb-4 text-primary uppercase">Create Contest</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Create a new weekly contest. Users need 5M BadTraders tokens to enter.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Token Address *</label>
+              <input
+                type="text"
+                value={contestTokenAddress}
+                onChange={(e) => setContestTokenAddress(e.target.value)}
+                placeholder="0x..."
+                className="w-full px-3 py-2 border-2 border-primary rounded bg-background font-mono text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Token Symbol (optional)</label>
+              <input
+                type="text"
+                value={contestTokenSymbol}
+                onChange={(e) => setContestTokenSymbol(e.target.value)}
+                placeholder="BADTRADERS"
+                className="w-full px-3 py-2 border-2 border-primary rounded bg-background"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Start Date *</label>
+              <input
+                type="datetime-local"
+                value={contestStartDate}
+                onChange={(e) => setContestStartDate(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-primary rounded bg-background"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">End Date *</label>
+              <input
+                type="datetime-local"
+                value={contestEndDate}
+                onChange={(e) => setContestEndDate(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-primary rounded bg-background"
+              />
+            </div>
+
+            <Button
+              onClick={handleCreateContest}
+              disabled={isCreatingContest || !contestTokenAddress || !contestStartDate || !contestEndDate}
+              className="w-full"
+            >
+              {isCreatingContest ? "Creating..." : "Create Contest"}
+            </Button>
+
+            {contestMessage && (
+              <div
+                className={`p-3 rounded-md ${
+                  contestMessage.type === "success"
+                    ? "bg-green-500/20 text-green-400 border border-green-500/50"
+                    : "bg-red-500/20 text-red-400 border border-red-500/50"
+                }`}
+              >
+                <p className="text-sm font-medium">
+                  {contestMessage.type === "success" ? "✓ " : "✗ "}
+                  {contestMessage.text}
+                </p>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Voting Period Management Section */}
+        <Card className="p-6 mb-6">
+          <h2 className="text-2xl font-bold mb-4 text-primary uppercase">Create Voting Period</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Create a new voting period for users to vote on the next contest token.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Voting End Date</label>
+              <input
+                type="datetime-local"
+                value={votingEndDate}
+                onChange={(e) => setVotingEndDate(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-primary rounded bg-background"
+              />
+            </div>
+
+            <div className="bg-primary/10 border-2 border-primary p-4 rounded">
+              <p className="text-sm font-bold text-primary uppercase mb-2">Default Option:</p>
+              <p className="text-sm text-muted-foreground">
+                BadTraders Token (0x0774...bb07) will be added automatically as the first voting option.
+              </p>
+            </div>
+
+            <Button
+              onClick={handleCreateVotingPeriod}
+              disabled={isCreatingVotingPeriod || !votingEndDate}
+              className="w-full"
+            >
+              {isCreatingVotingPeriod ? "Creating..." : "Create Voting Period"}
+            </Button>
+
+            {votingMessage && (
+              <div
+                className={`p-3 rounded-md ${
+                  votingMessage.type === "success"
+                    ? "bg-green-500/20 text-green-400 border border-green-500/50"
+                    : "bg-red-500/20 text-red-400 border border-red-500/50"
+                }`}
+              >
+                <p className="text-sm font-medium">
+                  {votingMessage.type === "success" ? "✓ " : "✗ "}
+                  {votingMessage.text}
+                </p>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Eligibility Cleanup Section */}
+        <Card className="p-6">
+          <h2 className="text-2xl font-bold mb-4 text-primary uppercase">Eligibility Cleanup</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Check all registered users' token balances and remove those who no longer hold the required amount.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={removeFromIndexing}
+                  onChange={(e) => setRemoveFromIndexing(e.target.checked)}
+                  className="mr-2"
+                />
+                Remove ineligible users from indexing (opt_in_status = false)
+              </label>
+              <p className="text-xs text-muted-foreground mt-1 ml-6">
+                If unchecked, only eligibility_status will be updated, but users will remain in indexing.
+              </p>
+            </div>
+
+            <Button
+              onClick={handleRunCleanup}
+              disabled={isRunningCleanup}
+              className="w-full"
+              variant="destructive"
+            >
+              {isRunningCleanup ? "Running Cleanup..." : "Run Eligibility Cleanup"}
+            </Button>
+
+            {cleanupMessage && (
+              <div
+                className={`p-4 rounded-md ${
+                  cleanupMessage.type === "success"
+                    ? "bg-green-500/20 text-green-400 border border-green-500/50"
+                    : "bg-red-500/20 text-red-400 border border-red-500/50"
+                }`}
+              >
+                <p className="text-sm font-medium mb-2">
+                  {cleanupMessage.type === "success" ? "✓ " : "✗ "}
+                  {cleanupMessage.text}
+                </p>
+                {cleanupMessage.details && (
+                  <div className="text-xs mt-2 space-y-1">
+                    <p>Total checked: {cleanupMessage.details.totalChecked}</p>
+                    <p>Still eligible: {cleanupMessage.details.stillEligible}</p>
+                    <p>No longer eligible: {cleanupMessage.details.noLongerEligible}</p>
+                    {removeFromIndexing && (
+                      <p>Removed from indexing: {cleanupMessage.details.removedFromIndexing}</p>
+                    )}
+                    {cleanupMessage.details.errors > 0 && (
+                      <p className="text-yellow-400">Errors: {cleanupMessage.details.errors}</p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

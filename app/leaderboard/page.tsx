@@ -3,7 +3,6 @@
 import ErrorMessage from '@/components/leaderboard/ErrorMessage';
 import Header from '@/components/leaderboard/Header';
 import Leaderboard from '@/components/leaderboard/Leaderboard';
-import MemeOfTheWeek from '@/components/leaderboard/MemeOfTheWeek';
 import MyStatus from '@/components/leaderboard/MyStatus';
 import { Button } from '@/components/ui/button';
 import { LeaderboardEntry } from '@/types/leaderboard';
@@ -23,8 +22,6 @@ export default function LeaderboardPage() {
   const [isEligible, setIsEligible] = useState<boolean>(false);
   const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false);
   const [eligibilityThreshold, setEligibilityThreshold] = useState<number>(WEBSITE_ELIGIBILITY_THRESHOLD);
-  const [memeImageUrl, setMemeImageUrl] = useState<string | null>(null);
-  const [isGeneratingMeme, setIsGeneratingMeme] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // Track initialization to prevent multiple calls
@@ -225,40 +222,6 @@ export default function LeaderboardPage() {
   // Notifications are handled by Farcaster client's native menu
   // No custom UI needed
 
-  const handleGenerateMeme = useCallback(async () => {
-    const winner = leaderboard[0];
-    if (!winner) {
-      setError('Leaderboard is empty, cannot NFT your losses.');
-      return;
-    }
-    setIsGeneratingMeme(true);
-    setError(null);
-    setMemeImageUrl(null);
-
-    try {
-      const response = await fetch('/api/meme', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(winner),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to mint NFT');
-      }
-
-      const { imageUrl } = await response.json();
-      setMemeImageUrl(imageUrl);
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'An unknown error occurred while minting your loss NFT.');
-    } finally {
-      setIsGeneratingMeme(false);
-    }
-  }, [leaderboard]);
-
   return (
     <div className="min-h-screen bg-background text-foreground pt-16">
       {/* Floating emojis */}
@@ -316,12 +279,6 @@ export default function LeaderboardPage() {
                   threshold={eligibilityThreshold}
                   isLoadingBalance={isLoadingBalance}
                   fid={userFid}
-                />
-                <MemeOfTheWeek
-                  winner={leaderboard[0]}
-                  onGenerate={handleGenerateMeme}
-                  isLoading={isGeneratingMeme}
-                  imageUrl={memeImageUrl}
                 />
               </div>
             </main>
