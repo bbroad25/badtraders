@@ -105,7 +105,25 @@ export default function BadTradersLanding() {
   // Check notification status when FID is available
   useEffect(() => {
     if (userFid && isInFarcaster) {
-      checkNotificationStatus()
+      const checkStatus = async () => {
+        try {
+          setIsCheckingNotifications(true)
+          const response = await fetch(`/api/notifications/check?fid=${userFid}`)
+          const data = await response.json()
+          
+          if (data.success) {
+            setNotificationStatus({
+              hasNotifications: data.hasNotifications,
+              tokenCount: data.tokenCount
+            })
+          }
+        } catch (error) {
+          console.error('Error checking notification status:', error)
+        } finally {
+          setIsCheckingNotifications(false)
+        }
+      }
+      checkStatus()
     }
   }, [userFid, isInFarcaster])
 
