@@ -163,11 +163,25 @@ export default function IndexerPage() {
   const fetchStats = async () => {
     try {
       const response = await fetch('/api/indexer/stats')
-      if (!response.ok) throw new Error('Failed to fetch stats')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch stats' }))
+        throw new Error(errorData.error || 'Failed to fetch stats')
+      }
       const data = await response.json()
-      setStats(data.stats)
-    } catch (err) {
+      setStats(data.stats || null)
+    } catch (err: any) {
       console.error('Error fetching stats:', err)
+      // Set stats to empty object so page still renders
+      setStats({
+        wallets: 0,
+        trades: 0,
+        positions: 0,
+        volume: { total: 0, buy: 0, sell: 0 },
+        traders: 0,
+        tokens: 0,
+        pnl: { realized: 0, positions: 0 },
+        recent: { trades_24h: 0 }
+      })
     }
   }
 
@@ -415,8 +429,9 @@ export default function IndexerPage() {
       const currentFilter = displayFilter
 
       // Fetch everything else in parallel - pass filter explicitly
+      // Use Promise.allSettled to ensure all requests complete even if some fail
       console.log('[fetchAll] Fetching all data in parallel with filter:', currentFilter)
-      await Promise.all([
+      const results = await Promise.allSettled([
         fetchStats(),
         fetchWalletsWithFilter(currentFilter),
         fetchTradesWithFilter(currentFilter),
@@ -424,6 +439,15 @@ export default function IndexerPage() {
         fetchTopTradersWithTokens(availableTokens, currentFilter),
         fetchHoldersWithTokens(availableTokens, currentFilter)
       ])
+      
+      // Log any failures but don't block rendering
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const names = ['stats', 'wallets', 'trades', 'positions', 'topTraders', 'holders']
+          console.warn(`[fetchAll] ${names[index]} fetch failed:`, result.reason)
+        }
+      })
+      
       console.log('[fetchAll] Complete!')
     } catch (err: any) {
       console.error('[fetchAll] Error:', err)
