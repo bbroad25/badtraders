@@ -8,7 +8,6 @@ export async function GET(req: NextRequest) {
 
   // Normalize domain - remove www for canonicalDomain but keep it in URLs
   const canonicalDomain = host.replace(/^www\./, '');
-
   const manifest = {
     miniapp: {
       version: "1",
