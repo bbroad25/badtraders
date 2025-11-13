@@ -220,8 +220,15 @@ export default function IndexerPage() {
       // NOTE: Not filtering by token_address - fetch ALL trades from Supabase
       const response = await fetch(`/api/indexer/trades?${params}`)
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(errorData.error || 'Failed to fetch trades')
+        let errorMessage = 'Failed to fetch trades'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorData.message || errorMessage
+        } catch {
+          // Response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage
+        }
+        throw new Error(errorMessage)
       }
       const data = await response.json()
       setTrades(data.trades || [])
@@ -496,8 +503,15 @@ export default function IndexerPage() {
       // NOTE: Not filtering by token_address - fetch ALL trades from Supabase
       const response = await fetch(`/api/indexer/trades?${params}`)
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(errorData.error || 'Failed to fetch trades')
+        let errorMessage = 'Failed to fetch trades'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorData.message || errorMessage
+        } catch {
+          // Response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage
+        }
+        throw new Error(errorMessage)
       }
       const data = await response.json()
       setTrades(data.trades || [])

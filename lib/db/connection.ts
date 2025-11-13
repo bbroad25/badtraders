@@ -16,8 +16,19 @@ function getSupabasePool(): Pool {
       throw new Error('DATABASE_URL environment variable is not set. Use Supabase PostgreSQL connection string (e.g., postgresql://user:pass@host/db)');
     }
 
+    // Log connection info (without password) for debugging
+    const connectionInfo = connectionString.replace(/:[^:@]+@/, ':****@');
+    console.log('[DB Connection] Original connection string:', connectionInfo);
+
     // Determine SSL config - Supabase requires SSL but uses certificates that may not be in Node's trust store
     const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
+    // Check if using pooler - if port is 5432 and it's a pooler URL, switch to transaction pooler port 6543
+    // Transaction pooler (6543) is better for serverless/edge functions and handles timeouts better
+    if (connectionString.includes('pooler.supabase.com') && connectionString.includes(':5432')) {
+      connectionString = connectionString.replace(':5432', ':6543');
+      console.log('[DB Connection] Switched to transaction pooler port 6543');
+    }
 
     // Remove sslmode from connection string to avoid conflicts, we'll handle SSL via Pool config
     // This prevents the connection string's sslmode=require from conflicting with our SSL config
@@ -31,13 +42,18 @@ function getSupabasePool(): Pool {
       rejectUnauthorized: false // Allow Supabase's self-signed/intermediate certificates
     };
 
+    console.log('[DB Connection] Final connection string:', connectionString.replace(/:[^:@]+@/, ':****@'));
+    console.log('[DB Connection] SSL config:', sslConfig);
+
     pgPool = new Pool({
       connectionString,
-      max: 2, // Allow 2 connections to handle concurrent requests during sync
-      idleTimeoutMillis: 30000, // 30 seconds
-      connectionTimeoutMillis: 60000, // 60 seconds - wait longer for pooler
+      max: 1, // Reduce to 1 connection - pooler handles concurrency
+      idleTimeoutMillis: 10000, // 10 seconds
+      connectionTimeoutMillis: 5000, // 5 seconds - fail fast
       ssl: sslConfig
     });
+
+    console.log('[DB Connection] Pool created');
 
     pgPool.on('error', (err: Error) => {
       // Ignore connection termination errors from pooler - these are normal
@@ -62,28 +78,39 @@ export async function query(text: string, params?: any[]) {
     const result = await pool.query(text, params);
     return result;
     } catch (error: any) {
-    // If connection was terminated, reset pool and retry once
-    // Don't reset on timeout - that just means pooler is busy, connection is still valid
     const errorMessage = error?.message || String(error);
+
+    // Log detailed error info
+    console.error('[DB Query] Error:', {
+      message: errorMessage,
+      code: error?.code,
+      query: text.substring(0, 100) + '...'
+    });
+
+    // If connection was terminated or timed out, reset pool and retry once
     if (errorMessage.includes('shutdown') ||
         errorMessage.includes('db_termination') ||
         errorMessage.includes('terminated') ||
-        errorMessage.includes('Connection terminated')) {
-      console.warn('Connection terminated, resetting pool and retrying...', errorMessage);
+        errorMessage.includes('Connection terminated') ||
+        errorMessage.includes('timeout exceeded')) {
+      console.warn('[DB Query] Connection issue detected, resetting pool and retrying...', errorMessage);
       pgPool = null;
       // Wait a moment before retrying
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
       pool = getSupabasePool();
       try {
+        console.log('[DB Query] Retrying query...');
         const retryResult = await pool.query(text, params);
+        console.log('[DB Query] Retry succeeded');
         return retryResult;
-      } catch (retryError) {
-        console.error('Supabase query error on retry:', retryError);
+      } catch (retryError: any) {
+        console.error('[DB Query] Retry failed:', retryError?.message);
         throw retryError;
       }
     }
-    // For timeout errors, just throw - don't reset pool (pooler is just busy)
-    console.error('Supabase query error:', error);
+
+    // For other errors, just throw
+    console.error('[DB Query] Query failed:', error);
     throw error;
   }
 }

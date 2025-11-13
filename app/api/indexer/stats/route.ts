@@ -4,16 +4,9 @@ import { query } from '@/lib/db/connection';
 export async function GET(request: NextRequest) {
   try {
     console.log('[Stats API] Starting queries...')
-    
-    // Get all stats in parallel
-    const [
-      walletsResult,
-      tradesResult,
-      positionsResult,
-      volumeResult,
-      pnlResult,
-      recentTradesResult
-    ] = await Promise.all([
+
+    // Get all stats in parallel - use allSettled so one failure doesn't kill everything
+    const results = await Promise.allSettled([
       query('SELECT COUNT(*) as count FROM wallets'),
       query('SELECT COUNT(*) as count FROM trades'),
       query('SELECT COUNT(*) as count FROM positions WHERE remaining_amount > 0'),
@@ -40,6 +33,22 @@ export async function GET(request: NextRequest) {
         WHERE timestamp > NOW() - INTERVAL '24 hours'
       `)
     ]);
+
+    // Extract results or use defaults
+    const walletsResult = results[0].status === 'fulfilled' ? results[0].value : { rows: [{ count: '0' }] };
+    const tradesResult = results[1].status === 'fulfilled' ? results[1].value : { rows: [{ count: '0' }] };
+    const positionsResult = results[2].status === 'fulfilled' ? results[2].value : { rows: [{ count: '0' }] };
+    const volumeResult = results[3].status === 'fulfilled' ? results[3].value : { rows: [{ total_volume: '0', buy_volume: '0', sell_volume: '0', unique_traders: '0', tokens_traded: '0' }] };
+    const pnlResult = results[4].status === 'fulfilled' ? results[4].value : { rows: [{ total_realized_pnl: '0', positions_with_pnl: '0' }] };
+    const recentTradesResult = results[5].status === 'fulfilled' ? results[5].value : { rows: [{ trades_last_24h: '0' }] };
+
+    // Log any failures
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const names = ['wallets', 'trades', 'positions', 'volume', 'pnl', 'recentTrades'];
+        console.error(`[Stats API] Query ${names[index]} failed:`, result.reason?.message || result.reason);
+      }
+    });
 
     console.log('[Stats API] Query results:', {
       wallets: walletsResult.rows[0]?.count,
