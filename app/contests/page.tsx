@@ -427,6 +427,21 @@ export default function ContestsPage() {
           Enter weekly trading contests and compete for the worst PnL
         </p>
 
+        {/* Disclaimer */}
+        <Card className="p-6 mb-6 border-4 border-yellow-500 bg-yellow-500/10">
+          <div className="flex items-start gap-3">
+            <span className="text-3xl">⚠️</span>
+            <div className="flex-1">
+              <h2 className="text-xl font-bold mb-2 text-yellow-600 uppercase">Beta Disclaimer</h2>
+              <p className="text-base leading-relaxed">
+                Contests are in <strong>beta</strong> and may experience issues as we iron out the details. 
+                We encourage you to enter contests anyway! Your participation helps us improve the system. 
+                If you encounter any problems, please let us know.
+              </p>
+            </div>
+          </div>
+        </Card>
+
         {/* Vote for Next Contest Token */}
         <Card className="p-6 mb-6 border-4 border-primary">
           <h2 className="text-2xl font-bold mb-4 text-primary uppercase">Vote for Next Contest Token</h2>
