@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { sdk } from '@farcaster/miniapp-sdk'
 import MyStatus from '@/components/leaderboard/MyStatus'
+import { useFarcasterContext } from '@/lib/hooks/useFarcasterContext'
 
 const FARCASTER_ELIGIBILITY_THRESHOLD = 1_000_000; // 1M for Farcaster miniapp users
 const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000; // 2M for website users
 
 export default function BadTradersLanding() {
+  const { isInFarcaster } = useFarcasterContext()
   const [copied, setCopied] = useState(false)
   const [walletAddress, setWalletAddress] = useState<string | null>(null)
   const [userFid, setUserFid] = useState<number | null>(null)
@@ -18,6 +20,7 @@ export default function BadTradersLanding() {
   const [isEligible, setIsEligible] = useState<boolean>(false)
   const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false)
   const [eligibilityThreshold, setEligibilityThreshold] = useState<number>(WEBSITE_ELIGIBILITY_THRESHOLD)
+  const [isAddingMiniApp, setIsAddingMiniApp] = useState(false)
   const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
   // Track initialization to prevent multiple calls
@@ -195,6 +198,27 @@ export default function BadTradersLanding() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const handleAddMiniApp = async () => {
+    if (!isInFarcaster) {
+      // Not in Farcaster - show message
+      alert('This feature is only available in the Farcaster app. Open this page in Farcaster to add the miniapp and enable notifications.')
+      return
+    }
+
+    try {
+      setIsAddingMiniApp(true)
+      const result = await sdk.actions.addMiniApp()
+      if (result) {
+        console.log('✅ Mini app added successfully')
+      }
+    } catch (error: any) {
+      console.error('Error adding mini app:', error)
+      alert('Failed to add mini app. Please try again.')
+    } finally {
+      setIsAddingMiniApp(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground pt-16">
       {/* Floating emojis */}
@@ -234,8 +258,30 @@ export default function BadTradersLanding() {
               }
             </p>
 
+            {/* Notification & Mini App Buttons - Only in Farcaster - AT THE TOP */}
+            {isInFarcaster && (
+              <Card className="p-4 md:p-6 mb-6 border-4 border-primary bg-primary/5 max-w-md mx-auto">
+                <h3 className="text-lg md:text-xl font-bold mb-2 text-primary uppercase text-center">
+                  🔔 Enable Notifications
+                </h3>
+                <p className="text-xs md:text-sm text-muted-foreground mb-4 text-center">
+                  Get notified about contest updates, leaderboard changes, and more. We promise not to abuse them! 🙏
+                </p>
+                <Button
+                  onClick={handleAddMiniApp}
+                  disabled={isAddingMiniApp}
+                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-sm md:text-base font-bold uppercase border-2 border-primary shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  {isAddingMiniApp ? 'Adding...' : '➕ Add Mini App & Enable Notifications'}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Adding the mini app enables notifications automatically
+                </p>
+              </Card>
+            )}
+
             {/* My Status Card - shown prominently on main page */}
-            <div className="max-w-md mx-auto pt-8">
+            <div className="max-w-md mx-auto pt-4 md:pt-8">
               <MyStatus
                 walletAddress={walletAddress}
                 balance={userBalance}
@@ -246,12 +292,12 @@ export default function BadTradersLanding() {
               />
             </div>
 
-            <div className="pt-8 flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="pt-4 md:pt-8 flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link href="/how-it-works">
                 <Button
                   size="lg"
                   variant="outline"
-                  className="bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground text-xl px-12 py-8 font-bold uppercase border-4 border-primary shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                  className="bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground text-lg md:text-xl px-8 md:px-12 py-6 md:py-8 font-bold uppercase border-4 border-primary shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 >
                   HOW IT WORKS ❓
                 </Button>
@@ -260,23 +306,13 @@ export default function BadTradersLanding() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground text-xl px-12 py-8 font-bold uppercase border-4 border-primary shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                  className="bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground text-lg md:text-xl px-8 md:px-12 py-6 md:py-8 font-bold uppercase border-4 border-primary shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 >
                   VIEW LEADERBOARD 📊
                 </Button>
               </Link>
             </div>
           </div>
-          <p className="text-2xl md:text-4xl font-bold uppercase tracking-tight mt-4">
-            FOR TRADERS WHO CAN'T TRADE
-          </p>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mt-4">
-            BULL MARKET? EVERYONE'S MAKING MONEY? NOT US. WE'RE THE FARCASTER USERS WHO SOMEHOW LOSE MONEY WHEN THE CHARTS GO UP.
-          </p>
-
-          <Button className="mt-8 bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground text-xl px-12 py-8 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            WE'RE NGMI 😭
-          </Button>
         </section>
 
         {/* Manifesto Section */}
