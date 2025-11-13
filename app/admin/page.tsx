@@ -29,6 +29,7 @@ export default function AdminPage() {
   const [notificationTarget, setNotificationTarget] = useState<"broadcast" | "specific">("broadcast")
   const [notificationTargetFid, setNotificationTargetFid] = useState("")
   const [isSendingNotification, setIsSendingNotification] = useState(false)
+  const [notificationMessage, setNotificationMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   // Loserboard state
   const [loserboardUsernameOrFid, setLoserboardUsernameOrFid] = useState("")
@@ -37,6 +38,7 @@ export default function AdminPage() {
   const [isAddingLoser, setIsAddingLoser] = useState(false)
   const [loserboardEntries, setLoserboardEntries] = useState<LoserboardEntry[]>([])
   const [isLoadingEntries, setIsLoadingEntries] = useState(true)
+  const [loserboardMessage, setLoserboardMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   // Redirect if not admin
   useEffect(() => {
@@ -79,18 +81,20 @@ export default function AdminPage() {
   }, [isAdmin])
 
   const handleSendNotification = async () => {
+    setNotificationMessage(null)
+
     if (!currentFid) {
-      alert("Unable to get your FID. Please ensure you're logged in via Farcaster.")
+      setNotificationMessage({ type: "error", text: "Unable to get your FID. Please ensure you're logged in via Farcaster." })
       return
     }
 
     if (!notificationTitle.trim() || !notificationBody.trim()) {
-      alert("Please fill in both title and body")
+      setNotificationMessage({ type: "error", text: "Please fill in both title and body" })
       return
     }
 
     if (notificationTarget === "specific" && !notificationTargetFid.trim()) {
-      alert("Please enter a target FID")
+      setNotificationMessage({ type: "error", text: "Please enter a target FID" })
       return
     }
 
@@ -123,15 +127,20 @@ export default function AdminPage() {
       }
 
       if (response.ok) {
-        alert(`Notification sent successfully! ${data.message || ''}`)
+        setNotificationMessage({
+          type: "success",
+          text: `Notification sent successfully! ${data.message || ''}`
+        })
         setNotificationTitle("")
         setNotificationBody("")
         setNotificationTargetFid("")
         setNotificationTarget("broadcast")
+        // Clear message after 5 seconds
+        setTimeout(() => setNotificationMessage(null), 5000)
       } else {
         // Show detailed error message
-        const errorMsg = data.error || data.message || `HTTP ${response.status}: ${response.statusText}`;
-        alert(`Failed to send notification:\n\n${errorMsg}\n\nCheck console for details.`)
+        const errorMsg = data.error || data.message || data.details || `HTTP ${response.status}: ${response.statusText}`;
+        setNotificationMessage({ type: "error", text: `Failed to send notification: ${errorMsg}` })
         console.error("Notification API error:", {
           status: response.status,
           statusText: response.statusText,
@@ -141,20 +150,22 @@ export default function AdminPage() {
     } catch (error: any) {
       console.error("Error sending notification:", error)
       const errorMessage = error.message || error.toString() || "Failed to send notification";
-      alert(`Error sending notification:\n\n${errorMessage}\n\nCheck console for details.`)
+      setNotificationMessage({ type: "error", text: `Error: ${errorMessage}` })
     } finally {
       setIsSendingNotification(false)
     }
   }
 
   const handleAddLoser = async () => {
+    setLoserboardMessage(null)
+
     if (!currentFid) {
-      alert("Unable to get your FID. Please ensure you're logged in via Farcaster.")
+      setLoserboardMessage({ type: "error", text: "Unable to get your FID. Please ensure you're logged in via Farcaster." })
       return
     }
 
     if (!loserboardUsernameOrFid.trim()) {
-      alert("Please enter a username or FID")
+      setLoserboardMessage({ type: "error", text: "Please enter a username or FID" })
       return
     }
 
@@ -198,8 +209,10 @@ export default function AdminPage() {
           }
         }
 
-        alert("Loser added successfully!")
+        setLoserboardMessage({ type: "success", text: "Loser added successfully!" })
         setLoserboardUsernameOrFid("")
+        // Clear message after 5 seconds
+        setTimeout(() => setLoserboardMessage(null), 5000)
 
         // Refresh entries
         const entriesResponse = await fetch("/api/leaderboard")
@@ -217,11 +230,11 @@ export default function AdminPage() {
           })))
         }
       } else {
-        alert(`Failed to add loser: ${data.error || "Unknown error"}`)
+        setLoserboardMessage({ type: "error", text: `Failed to add loser: ${data.error || "Unknown error"}` })
       }
     } catch (error: any) {
       console.error("Error adding loser:", error)
-      alert(`Error: ${error.message || "Failed to add loser"}`)
+      setLoserboardMessage({ type: "error", text: `Error: ${error.message || "Failed to add loser"}` })
     } finally {
       setIsAddingLoser(false)
     }
@@ -327,6 +340,21 @@ export default function AdminPage() {
             >
               {isSendingNotification ? "Sending..." : "Send Notification"}
             </Button>
+
+            {notificationMessage && (
+              <div
+                className={`p-3 rounded-md ${
+                  notificationMessage.type === "success"
+                    ? "bg-green-500/20 text-green-400 border border-green-500/50"
+                    : "bg-red-500/20 text-red-400 border border-red-500/50"
+                }`}
+              >
+                <p className="text-sm font-medium">
+                  {notificationMessage.type === "success" ? "✓ " : "✗ "}
+                  {notificationMessage.text}
+                </p>
+              </div>
+            )}
           </div>
         </Card>
 
@@ -373,6 +401,21 @@ export default function AdminPage() {
             >
               {isAddingLoser ? "Adding..." : "Add to Loserboard"}
             </Button>
+
+            {loserboardMessage && (
+              <div
+                className={`p-3 rounded-md ${
+                  loserboardMessage.type === "success"
+                    ? "bg-green-500/20 text-green-400 border border-green-500/50"
+                    : "bg-red-500/20 text-red-400 border border-red-500/50"
+                }`}
+              >
+                <p className="text-sm font-medium">
+                  {loserboardMessage.type === "success" ? "✓ " : "✗ "}
+                  {loserboardMessage.text}
+                </p>
+              </div>
+            )}
           </div>
         </Card>
 
