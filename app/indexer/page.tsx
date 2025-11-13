@@ -162,17 +162,20 @@ export default function IndexerPage() {
 
   const fetchStats = async () => {
     try {
+      console.log('[fetchStats] Fetching stats...')
       const response = await fetch('/api/indexer/stats')
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Failed to fetch stats' }))
+        console.error('[fetchStats] API error:', response.status, errorData)
         throw new Error(errorData.error || 'Failed to fetch stats')
       }
       const data = await response.json()
+      console.log('[fetchStats] Received stats:', data.stats)
       setStats(data.stats || null)
     } catch (err: any) {
-      console.error('Error fetching stats:', err)
+      console.error('[fetchStats] Error fetching stats:', err)
       // Set stats to empty object so page still renders
-      setStats({
+      const emptyStats = {
         wallets: 0,
         trades: 0,
         positions: 0,
@@ -181,7 +184,9 @@ export default function IndexerPage() {
         tokens: 0,
         pnl: { realized: 0, positions: 0 },
         recent: { trades_24h: 0 }
-      })
+      }
+      console.warn('[fetchStats] Setting empty stats due to error')
+      setStats(emptyStats)
     }
   }
 
@@ -1239,7 +1244,7 @@ export default function IndexerPage() {
         </div>
 
         {/* Stats Cards */}
-        {stats && (
+        {stats ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             <Card className="bg-card border-2 border-primary">
               <CardHeader className="pb-2">
@@ -1273,6 +1278,10 @@ export default function IndexerPage() {
                 <p className="text-sm text-muted-foreground mt-1">{stats.pnl.positions} positions</p>
               </CardContent>
             </Card>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-xl text-muted-foreground uppercase">Loading stats...</p>
           </div>
         )}
 
