@@ -1,8 +1,11 @@
 /**
  * Notification Service using Farcaster's standard notification API
  *
- * We store notification tokens from webhook events and send notifications
- * directly to each user's notificationDetails.url using their stored token.
+ * According to Farcaster spec: https://miniapps.farcaster.xyz/docs/guides/notifications
+ * - Tokens are sent in request body as an array (not in Authorization header)
+ * - Can batch up to 100 tokens per request
+ * - Must include notificationId for deduplication
+ * - Response includes successfulTokens, invalidTokens, rateLimitedTokens arrays
  */
 
 import { query } from '@/lib/db/connection';
@@ -14,13 +17,15 @@ import { query } from '@/lib/db/connection';
  * @param targetFids Array of FIDs to notify (empty array = all users with notifications enabled)
  * @param title Notification title (max 32 chars)
  * @param body Notification body (max 128 chars)
- * @param targetUrl URL to open when clicked
+ * @param targetUrl URL to open when clicked (max 1024 chars, must be same domain)
+ * @param notificationId Unique identifier for deduplication (max 128 chars). If not provided, generates one.
  */
 export async function sendNotification(
   targetFids: number[],
   title: string,
   body: string,
-  targetUrl: string
+  targetUrl: string,
+  notificationId?: string
 ): Promise<void> {
   try {
     // Get notification tokens from database
@@ -45,27 +50,66 @@ export async function sendNotification(
       return;
     }
 
+    // Generate notificationId if not provided (for deduplication)
+    const finalNotificationId = notificationId || `notification-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+    // Group tokens by URL (same Farcaster client)
+    // Tokens from the same client can be batched together
+    const tokensByUrl = new Map<string, Array<{ fid: number; token: string }>>();
+
+    for (const tokenRow of tokens) {
+      const url = tokenRow.url;
+      if (!tokensByUrl.has(url)) {
+        tokensByUrl.set(url, []);
+      }
+      tokensByUrl.get(url)!.push({
+        fid: tokenRow.fid,
+        token: tokenRow.token
+      });
+    }
+
     console.log(`🚀 Sending notifications to ${tokens.length} users via Farcaster API:`, {
       targetFids: targetFids.length === 0 ? 'ALL_USERS' : targetFids,
       title,
       body,
-      targetUrl
+      targetUrl,
+      notificationId: finalNotificationId,
+      batches: tokensByUrl.size
     });
 
-    // Send to each user's notification URL
-    const results = await Promise.allSettled(
-      tokens.map(async (tokenRow: any) => {
+    // Send batched requests (up to 100 tokens per request per Farcaster spec)
+    const BATCH_SIZE = 100;
+    const allInvalidTokens: string[] = [];
+    const allRateLimitedTokens: string[] = [];
+    let totalSuccessCount = 0;
+
+    for (const [url, urlTokens] of tokensByUrl.entries()) {
+      // Process tokens in batches of 100
+      for (let i = 0; i < urlTokens.length; i += BATCH_SIZE) {
+        const batch = urlTokens.slice(i, i + BATCH_SIZE);
+        const tokenStrings = batch.map(t => t.token);
+
         try {
-          const response = await fetch(tokenRow.url, {
+          // According to Farcaster spec, request body format:
+          // {
+          //   notificationId: string (max 128 chars),
+          //   title: string (max 32 chars),
+          //   body: string (max 128 chars),
+          //   targetUrl: string (max 1024 chars, must be same domain),
+          //   tokens: string[] (max 100 tokens)
+          // }
+          const response = await fetch(url, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${tokenRow.token}`
+              'Content-Type': 'application/json'
+              // NO Authorization header - tokens go in body
             },
             body: JSON.stringify({
+              notificationId: finalNotificationId.substring(0, 128),
               title: title.substring(0, 32),
               body: body.substring(0, 128),
-              target_url: targetUrl
+              targetUrl: targetUrl.substring(0, 1024),
+              tokens: tokenStrings
             })
           });
 
@@ -75,30 +119,47 @@ export async function sendNotification(
           }
 
           const responseData = await response.json();
-          return { fid: tokenRow.fid, status: 'success', data: responseData };
+
+          // Response format per Farcaster spec:
+          // {
+          //   successfulTokens: string[],
+          //   invalidTokens: string[],
+          //   rateLimitedTokens: string[]
+          // }
+          const { successfulTokens = [], invalidTokens = [], rateLimitedTokens = [] } = responseData;
+
+          totalSuccessCount += successfulTokens.length;
+          allInvalidTokens.push(...invalidTokens);
+          allRateLimitedTokens.push(...rateLimitedTokens);
+
+          console.log(`✅ Batch sent: ${successfulTokens.length} succeeded, ${invalidTokens.length} invalid, ${rateLimitedTokens.length} rate-limited`);
+
         } catch (error: any) {
-          console.error(`❌ Failed to send notification to FID ${tokenRow.fid}:`, error);
-          return { fid: tokenRow.fid, status: 'failed', error: error.message };
+          console.error(`❌ Failed to send notification batch to ${url}:`, error);
+          // Mark all tokens in this batch as potentially failed
+          // But don't delete them - might be a temporary error
         }
-      })
-    );
-
-    const successCount = results.filter(
-      r => r.status === 'fulfilled' && r.value.status === 'success'
-    ).length;
-    const failureCount = results.length - successCount;
-
-    console.log(`✅ Notification results: ${successCount} succeeded, ${failureCount} failed`);
-
-    if (failureCount > 0) {
-      const failures = results
-        .filter(r => r.status === 'fulfilled' && r.value.status === 'failed')
-        .map(r => (r as PromiseFulfilledResult<any>).value);
-      console.warn('⚠️ Failed notifications:', failures);
+      }
     }
 
+    // Remove invalid tokens from database (they should never be used again)
+    if (allInvalidTokens.length > 0) {
+      console.log(`🗑️ Removing ${allInvalidTokens.length} invalid tokens from database`);
+      await query(
+        'DELETE FROM notification_tokens WHERE token = ANY($1)',
+        [allInvalidTokens]
+      );
+    }
+
+    // Log rate-limited tokens (can retry later)
+    if (allRateLimitedTokens.length > 0) {
+      console.warn(`⚠️ ${allRateLimitedTokens.length} tokens were rate-limited. Can retry later.`);
+    }
+
+    console.log(`✅ Notification results: ${totalSuccessCount} succeeded, ${allInvalidTokens.length} invalid, ${allRateLimitedTokens.length} rate-limited`);
+
     // If all failed, throw an error
-    if (successCount === 0 && tokens.length > 0) {
+    if (totalSuccessCount === 0 && tokens.length > 0 && allRateLimitedTokens.length === 0) {
       throw new Error(`All ${tokens.length} notification attempts failed`);
     }
   } catch (error: any) {
@@ -110,12 +171,18 @@ export async function sendNotification(
 /**
  * Broadcast notification to all users (empty targetFids)
  * Used for general announcements
+ *
+ * @param title Notification title (max 32 chars)
+ * @param body Notification body (max 128 chars)
+ * @param targetUrl URL to open when clicked (max 1024 chars, must be same domain)
+ * @param notificationId Optional unique identifier for deduplication (max 128 chars)
  */
 export async function broadcastNotification(
   title: string,
   body: string,
-  targetUrl: string
+  targetUrl: string,
+  notificationId?: string
 ): Promise<void> {
-  await sendNotification([], title, body, targetUrl);
+  await sendNotification([], title, body, targetUrl, notificationId);
 }
 

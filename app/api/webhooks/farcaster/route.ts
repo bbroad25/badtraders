@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db/connection';
-import { parseWebhookEvent } from '@farcaster/miniapp-node';
+import { parseWebhookEvent, verifyAppKeyWithNeynar } from '@farcaster/miniapp-node';
 
 /**
  * POST /api/webhooks/farcaster
@@ -33,15 +33,37 @@ export async function POST(request: NextRequest) {
     });
 
     // Parse and verify the webhook signature
+    // According to Farcaster docs, parseWebhookEvent requires a verification function
     let verifiedEvent;
     try {
-      verifiedEvent = await parseWebhookEvent(body);
+      verifiedEvent = await parseWebhookEvent(body, verifyAppKeyWithNeynar);
       console.log('✅ Webhook signature verified:', {
         fid: verifiedEvent.fid,
         event: verifiedEvent.event
       });
     } catch (verifyError: any) {
       console.error('❌ Webhook signature verification failed:', verifyError);
+
+      // Handle specific error types per Farcaster docs
+      if (verifyError.name === 'VerifyJsonFarcasterSignature.InvalidDataError' ||
+          verifyError.name === 'VerifyJsonFarcasterSignature.InvalidEventDataError') {
+        return NextResponse.json(
+          { error: 'Invalid webhook data', details: verifyError.message },
+          { status: 400 }
+        );
+      } else if (verifyError.name === 'VerifyJsonFarcasterSignature.InvalidAppKeyError') {
+        return NextResponse.json(
+          { error: 'Invalid app key', details: verifyError.message },
+          { status: 401 }
+        );
+      } else if (verifyError.name === 'VerifyJsonFarcasterSignature.VerifyAppKeyError') {
+        // Internal error - caller may want to try again
+        return NextResponse.json(
+          { error: 'Verification service error', details: verifyError.message },
+          { status: 500 }
+        );
+      }
+
       return NextResponse.json(
         { error: 'Invalid webhook signature', details: verifyError.message },
         { status: 401 }

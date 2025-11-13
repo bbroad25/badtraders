@@ -729,13 +729,23 @@ Try it: ${miniappUrl}`)
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Username or FID</label>
+              <label className="block text-sm font-medium mb-2">
+                Username or FID <span className="text-xs text-muted-foreground">(username preferred)</span>
+              </label>
               <Input
                 type="text"
                 value={loserboardUsernameOrFid}
                 onChange={(e) => setLoserboardUsernameOrFid(e.target.value)}
-                placeholder="Enter username (e.g., @username) or FID (e.g., 12345)"
+                placeholder="Enter username (e.g., username or @username) or FID (e.g., 12345)"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !isAddingLoser && loserboardUsernameOrFid.trim()) {
+                    handleAddLoser()
+                  }
+                }}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Username lookup is preferred. You can use @username or just username. FID will be used as fallback.
+              </p>
             </div>
 
             <div className="space-y-2">

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Configuration, NeynarAPIClient } from '@neynar/nodejs-sdk';
 import { query } from '@/lib/db/connection';
 
 // Hardcoded admin FIDs
@@ -56,39 +55,104 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if NEYNAR_API_KEY is set
-    if (!process.env.NEYNAR_API_KEY) {
-      console.error('❌ NEYNAR_API_KEY not configured');
+    // Look up user via Neynar API
+    // Prefer username lookup, fall back to FID if username fails or input is numeric
+    // Using direct REST API calls to Neynar for reliability
+    let userData: any = null;
+    const trimmedInput = usernameOrFid.trim();
+    const isNumeric = /^\d+$/.test(trimmedInput);
+    const username = trimmedInput.replace('@', '');
+    const apiKey = process.env.NEYNAR_API_KEY;
+
+    if (!apiKey) {
       return NextResponse.json(
         { error: 'Neynar API key not configured' },
         { status: 500 }
       );
     }
 
-    // Initialize Neynar client
-    const neynarConfig = new Configuration({ apiKey: process.env.NEYNAR_API_KEY });
-    const neynarClient = new NeynarAPIClient(neynarConfig);
-
-    // Look up user via Neynar API
-    let userData: any = null;
-    const isNumeric = /^\d+$/.test(usernameOrFid.trim());
-
     try {
-      if (isNumeric) {
-        // Treat as FID
-        const fidToLookup = parseInt(usernameOrFid.trim(), 10);
-        const response = await neynarClient.lookupUserByFid({ fid: fidToLookup });
-        userData = response.result?.user || response;
+      // Try username first (unless input is clearly numeric)
+      if (!isNumeric) {
+        try {
+          console.log(`🔍 Looking up user by username: ${username}`);
+          // Use Neynar REST API directly: GET /v2/farcaster/user/by_username/{username}
+          const response = await fetch(
+            `https://api.neynar.com/v2/farcaster/user/by_username?username=${encodeURIComponent(username)}`,
+            {
+              headers: {
+                'x-api-key': apiKey
+              }
+            }
+          );
+
+          if (!response.ok) {
+            if (response.status === 404) {
+              // If username lookup fails and input looks like it could be a FID, try FID
+              if (/^\d+$/.test(username)) {
+                throw new Error('USERNAME_NOT_FOUND_BUT_IS_NUMERIC');
+              }
+              throw new Error(`User not found: ${username}`);
+            }
+            throw new Error(`Neynar API error: ${response.status}`);
+          }
+
+          const data = await response.json();
+          userData = data.user;
+          console.log(`✅ Found user by username: ${userData?.fid} (@${userData?.username})`);
+        } catch (usernameError: any) {
+          // If username lookup fails and input looks like it could be a FID, try FID
+          if (usernameError.message === 'USERNAME_NOT_FOUND_BUT_IS_NUMERIC') {
+            console.log(`⚠️ Username lookup failed, trying as FID: ${username}`);
+            const fidToLookup = parseInt(username, 10);
+            const response = await fetch(
+              `https://api.neynar.com/v2/farcaster/user/by_fid?fid=${fidToLookup}`,
+              {
+                headers: {
+                  'x-api-key': apiKey
+                }
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(`User not found by FID: ${fidToLookup}`);
+            }
+
+            const data = await response.json();
+            userData = data.user;
+            console.log(`✅ Found user by FID: ${userData?.fid}`);
+          } else {
+            // Re-throw username error if it's not numeric
+            throw usernameError;
+          }
+        }
       } else {
-        // Treat as username
-        const username = usernameOrFid.trim().replace('@', '');
-        const response = await neynarClient.lookupUserByUsername({ username });
-        userData = response.result?.user || response;
+        // Input is clearly numeric, treat as FID
+        const fidToLookup = parseInt(trimmedInput, 10);
+        console.log(`🔍 Looking up user by FID: ${fidToLookup}`);
+        // Use Neynar REST API directly: GET /v2/farcaster/user/by_fid/{fid}
+        const response = await fetch(
+          `https://api.neynar.com/v2/farcaster/user/by_fid?fid=${fidToLookup}`,
+          {
+            headers: {
+              'x-api-key': apiKey
+            }
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`User not found by FID: ${fidToLookup}`);
+        }
+
+        const data = await response.json();
+        userData = data.user;
+        console.log(`✅ Found user by FID: ${userData?.fid} (@${userData?.username})`);
       }
     } catch (neynarError: any) {
       console.error('❌ Error looking up user via Neynar:', neynarError);
+      const errorMessage = neynarError.message || 'User not found';
       return NextResponse.json(
-        { error: `Failed to find user: ${neynarError.message || 'User not found'}` },
+        { error: `Failed to find user: ${errorMessage}. Make sure the username or FID is correct.` },
         { status: 404 }
       );
     }
