@@ -45,14 +45,37 @@ export async function sendNotification(
     });
 
     console.log('✅ Notification sent successfully:', response);
+
+    // Log response details for debugging
+    if (response?.results) {
+      const successCount = response.results.filter((r: any) => r.status === 'success').length;
+      const failureCount = response.results.filter((r: any) => r.status !== 'success').length;
+      console.log(`📊 Notification results: ${successCount} succeeded, ${failureCount} failed`);
+
+      // Log any failures
+      if (failureCount > 0) {
+        const failures = response.results.filter((r: any) => r.status !== 'success');
+        console.warn('⚠️ Failed notifications:', failures);
+      }
+    }
   } catch (error: any) {
     console.error('❌ Failed to send notification:', error);
     console.error('Error details:', {
       message: error?.message,
       stack: error?.stack,
-      response: error?.response?.data
+      response: error?.response?.data,
+      status: error?.response?.status,
+      statusText: error?.response?.statusText
     });
-    throw error;
+
+    // Re-throw with more context
+    const enhancedError = new Error(
+      `Neynar API error: ${error?.message || 'Unknown error'}. ` +
+      `Status: ${error?.response?.status || 'N/A'}. ` +
+      `Details: ${JSON.stringify(error?.response?.data || {})}`
+    );
+    (enhancedError as any).originalError = error;
+    throw enhancedError;
   }
 }
 

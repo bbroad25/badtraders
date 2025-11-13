@@ -112,20 +112,36 @@ export default function AdminPage() {
         }
       )
 
-      const data = await response.json()
+      // Try to parse JSON, but handle non-JSON responses
+      let data: any;
+      const responseText = await response.text();
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        // If response isn't JSON, show the raw text
+        throw new Error(`Server error (${response.status}): ${responseText.substring(0, 200)}`);
+      }
 
       if (response.ok) {
-        alert("Notification sent successfully!")
+        alert(`Notification sent successfully! ${data.message || ''}`)
         setNotificationTitle("")
         setNotificationBody("")
         setNotificationTargetFid("")
         setNotificationTarget("broadcast")
       } else {
-        alert(`Failed to send notification: ${data.error || "Unknown error"}`)
+        // Show detailed error message
+        const errorMsg = data.error || data.message || `HTTP ${response.status}: ${response.statusText}`;
+        alert(`Failed to send notification:\n\n${errorMsg}\n\nCheck console for details.`)
+        console.error("Notification API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          data
+        });
       }
     } catch (error: any) {
       console.error("Error sending notification:", error)
-      alert(`Error: ${error.message || "Failed to send notification"}`)
+      const errorMessage = error.message || error.toString() || "Failed to send notification";
+      alert(`Error sending notification:\n\n${errorMessage}\n\nCheck console for details.`)
     } finally {
       setIsSendingNotification(false)
     }

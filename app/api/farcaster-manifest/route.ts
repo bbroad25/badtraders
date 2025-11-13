@@ -20,7 +20,8 @@ export async function GET(req: NextRequest) {
       imageUrl: "https://badtraders.xyz/og-image.jpg",
       tagline: "We trade bad but we fun good",
       description: "Track the biggest weekly losses. The BadTrader competition leaderboard.",
-      primaryCategory: "social"
+      primaryCategory: "social",
+      webhookUrl: `${baseUrl}/api/webhooks/farcaster`
     },
     accountAssociation: {
       header: "eyJmaWQiOjcyMTIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhBODU1ZmFFNEZmY0M1OUM3N0M3NkRjZmEzYUJmREY3NEEyMzQ0YTE4In0",

@@ -72,7 +72,27 @@ export async function POST(request: NextRequest) {
     const targetUrl = url || process.env.NEXT_PUBLIC_APP_URL || 'https://badtraders.xyz';
 
     // Send notification via Neynar
-    await sendNotification(targetFids, title, bodyText, targetUrl);
+    try {
+      await sendNotification(targetFids, title, bodyText, targetUrl);
+    } catch (notificationError: any) {
+      // Extract detailed error information from Neynar API
+      const errorDetails = notificationError?.response?.data || notificationError?.message || 'Unknown error';
+      console.error('❌ Neynar API error details:', {
+        message: notificationError?.message,
+        status: notificationError?.response?.status,
+        data: notificationError?.response?.data,
+        stack: notificationError?.stack
+      });
+
+      return NextResponse.json(
+        {
+          error: 'Failed to send notification via Neynar',
+          details: errorDetails,
+          message: typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails)
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -83,7 +103,10 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('❌ Admin notification API error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to send notification' },
+      {
+        error: error.message || 'Failed to send notification',
+        details: error.stack || 'No additional details available'
+      },
       { status: 500 }
     );
   }
