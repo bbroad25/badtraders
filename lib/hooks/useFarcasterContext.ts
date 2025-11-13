@@ -10,6 +10,7 @@ import { sdk } from '@farcaster/miniapp-sdk'
 export function useFarcasterContext() {
   const [isInFarcaster, setIsInFarcaster] = useState<boolean | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [userFid, setUserFid] = useState<number | null>(null)
 
   useEffect(() => {
     const checkContext = async () => {
@@ -18,6 +19,15 @@ export function useFarcasterContext() {
         const context = await sdk.context
         // If context exists and has client property, we're in Farcaster
         const inFarcaster = context !== null && context !== undefined
+
+        // Extract FID from context if available
+        if (context && typeof context === 'object' && 'user' in context) {
+          const user = (context as any).user
+          if (user && typeof user.fid === 'number') {
+            setUserFid(user.fid)
+          }
+        }
+
         setIsInFarcaster(inFarcaster)
       } catch (error) {
         // If sdk.context fails or throws, we're not in Farcaster
@@ -31,6 +41,6 @@ export function useFarcasterContext() {
     checkContext()
   }, [])
 
-  return { isInFarcaster: isInFarcaster ?? false, isLoading }
+  return { isInFarcaster: isInFarcaster ?? false, isLoading, userFid }
 }
 

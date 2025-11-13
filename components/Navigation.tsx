@@ -7,6 +7,7 @@ import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Twitter, Github } from "lucide-react"
 import { useFarcasterContext } from "@/lib/hooks/useFarcasterContext"
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess"
 
 // Dynamically import WalletConnect only when not in Farcaster to prevent initialization
 const WalletConnect = dynamic(
@@ -18,6 +19,7 @@ export default function Navigation() {
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const { isInFarcaster, isLoading: isLoadingFarcaster } = useFarcasterContext()
+  const { isAdmin } = useAdminAccess()
 
   const navItems = [
     { href: "/", label: "HOME" },
@@ -26,6 +28,7 @@ export default function Navigation() {
     { href: "/users", label: "REGISTERED USERS" },
     { href: "/coming-next", label: "COMING NEXT" },
     { href: "/indexer", label: "INDEXER" },
+    ...(isAdmin ? [{ href: "/admin", label: "ADMIN" }] : []),
   ]
 
   const socialLinks = [

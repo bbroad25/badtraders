@@ -1,51 +1,45 @@
 // app/api/leaderboard/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { generateLeaderboard } from '@/lib/services/leaderboardService';
 import { query } from '@/lib/db/connection';
+import { LeaderboardEntry } from '@/types/leaderboard';
 
-const CACHE_TTL = 1000 * 60 * 60; // 1 hour
-const CACHE_KEY = 'default';
+const DEFAULT_PFP = 'https://i.imgur.com/sB02Hbz.png'; // Default PFP for users without one
 
 export async function GET(req: NextRequest) {
   try {
-    // Check for cached leaderboard in database
-    const cacheResult = await query(
-      'SELECT leaderboard_data, updated_at FROM leaderboard_cache WHERE cache_key = $1',
-      [CACHE_KEY]
+    // Since automated PnL isn't working yet, return manual loserboard entries
+    console.log("Fetching manual loserboard entries...");
+
+    const result = await query(
+      `SELECT
+        id,
+        fid,
+        username,
+        display_name,
+        address,
+        pfp_url,
+        added_at,
+        added_by_fid
+       FROM manual_loserboard_entries
+       ORDER BY added_at DESC`,
+      []
     );
 
-    if (cacheResult.rows.length > 0) {
-      const cached = cacheResult.rows[0];
-      const updatedAt = new Date(cached.updated_at).getTime();
-      const cacheAge = Date.now() - updatedAt;
+    // Format entries to match LeaderboardEntry interface
+    const leaderboard: LeaderboardEntry[] = result.rows.map((row, index) => ({
+      rank: index + 1,
+      fid: row.fid || 0,
+      username: row.username || '',
+      display_name: row.display_name || row.username || '',
+      pfpUrl: row.pfp_url || DEFAULT_PFP,
+      address: row.address || '',
+      loss: 0 // Manual entries don't have loss amounts tracked
+    }));
 
-      if (cacheAge < CACHE_TTL) {
-        console.log("Serving leaderboard from database cache.");
-        // Supabase JSONB returns as object, no need to parse
-        const leaderboardData = cached.leaderboard_data;
-        return NextResponse.json(leaderboardData);
-      }
-    }
-
-    // Cache expired or doesn't exist - generate new leaderboard
-    console.log("Generating new leaderboard. This may take a moment...");
-    const leaderboardData = await generateLeaderboard();
-
-    // Store in database (Supabase - same in dev and production)
-    const leaderboardJson = JSON.stringify(leaderboardData);
-    await query(
-      `INSERT INTO leaderboard_cache (cache_key, leaderboard_data, updated_at)
-       VALUES ($1, $2::jsonb, NOW())
-       ON CONFLICT(cache_key) DO UPDATE SET
-         leaderboard_data = $2::jsonb,
-         updated_at = NOW()`,
-      [CACHE_KEY, leaderboardJson]
-    );
-
-    console.log("Leaderboard generated and cached in database successfully.");
-    return NextResponse.json(leaderboardData);
+    console.log(`Returning ${leaderboard.length} manual loserboard entries.`);
+    return NextResponse.json(leaderboard);
   } catch (error) {
-    console.error("Error generating leaderboard:", error);
+    console.error("Error fetching leaderboard:", error);
     // Return empty array instead of error so UI still works
     return NextResponse.json([]);
   }
