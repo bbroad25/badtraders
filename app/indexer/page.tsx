@@ -439,7 +439,7 @@ export default function IndexerPage() {
         fetchTopTradersWithTokens(availableTokens, currentFilter),
         fetchHoldersWithTokens(availableTokens, currentFilter)
       ])
-      
+
       // Log any failures but don't block rendering
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
@@ -447,7 +447,7 @@ export default function IndexerPage() {
           console.warn(`[fetchAll] ${names[index]} fetch failed:`, result.reason)
         }
       })
-      
+
       console.log('[fetchAll] Complete!')
     } catch (err: any) {
       console.error('[fetchAll] Error:', err)

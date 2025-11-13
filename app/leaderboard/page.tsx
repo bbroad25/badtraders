@@ -160,7 +160,7 @@ export default function LeaderboardPage() {
   useEffect(() => {
     // Don't run if in Farcaster miniapp - wallet is handled by Farcaster SDK
     if (userFid !== null) return; // If we have FID, we're in Farcaster, skip this
-    
+
     if (typeof window === 'undefined' || !window.ethereum) return;
 
     const checkWalletConnection = async () => {
