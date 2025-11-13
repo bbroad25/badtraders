@@ -388,7 +388,14 @@ export default function ContestsPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage({ type: 'success', text: data.message || 'Registration successful! Indexing started.' });
+        // Show success message with clear notification
+        setMessage({ 
+          type: 'success', 
+          text: `✅ Successfully entered contest! Your wallet is being indexed. This may take a few moments...` 
+        });
+
+        // Immediately load position to show "indexing" status
+        await loadPosition();
 
         // Poll for position update
         setTimeout(() => {
@@ -396,10 +403,18 @@ export default function ContestsPage() {
           // Poll every 5 seconds until indexed
           const pollInterval = setInterval(async () => {
             await loadPosition();
-            // Check if indexed (position will be updated by loadPosition)
-            const currentPos = position;
-            if (currentPos?.status === 'indexed') {
-              clearInterval(pollInterval);
+            // Check position after loading - need to fetch fresh data
+            const checkResponse = await fetch(`/api/contests/my-position?contestId=${selectedContest.id}&walletAddress=${walletAddress}`);
+            if (checkResponse.ok) {
+              const checkData = await checkResponse.json();
+              if (checkData.position?.status === 'indexed') {
+                clearInterval(pollInterval);
+                setMessage({ 
+                  type: 'success', 
+                  text: `🎉 Indexing complete! Your trades have been analyzed. Check your position below.` 
+                });
+                await loadPosition(); // Refresh position display
+              }
             }
           }, 5000);
 
@@ -418,174 +433,126 @@ export default function ContestsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground pt-16">
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <h1 className="text-5xl md:text-6xl font-bold mb-8 text-center text-foreground uppercase">
+    <div className="min-h-screen bg-background text-foreground pt-16 md:pt-20">
+      <div className="max-w-4xl mx-auto px-3 md:px-4 py-6 md:py-12">
+        <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-8 text-center text-foreground uppercase">
           Weekly Contests
         </h1>
-        <p className="text-xl md:text-2xl text-center text-muted-foreground mb-12">
+        <p className="text-sm md:text-xl lg:text-2xl text-center text-muted-foreground mb-6 md:mb-12">
           Enter weekly trading contests and compete for the worst PnL
         </p>
 
-        {/* Disclaimer */}
-        <Card className="p-6 mb-6 border-4 border-yellow-500 bg-yellow-500/10">
-          <div className="flex items-start gap-3">
-            <span className="text-3xl">⚠️</span>
+        {/* Disclaimer - Compact */}
+        <Card className="p-3 md:p-4 mb-4 border-2 border-yellow-500 bg-yellow-500/10">
+          <div className="flex items-start gap-2">
+            <span className="text-xl md:text-2xl">⚠️</span>
             <div className="flex-1">
-              <h2 className="text-xl font-bold mb-2 text-yellow-600 uppercase">Beta Disclaimer</h2>
-              <p className="text-base leading-relaxed">
-                Contests are in <strong>beta</strong> and may experience issues as we iron out the details.
-                We encourage you to enter contests anyway! Your participation helps us improve the system.
-                If you encounter any problems, please let us know.
+              <p className="text-xs md:text-sm leading-relaxed">
+                <strong>Beta:</strong> Contests may have issues. We encourage participation to help us improve!
               </p>
             </div>
           </div>
         </Card>
 
-        {/* Vote for Next Contest Token */}
-        <Card className="p-6 mb-6 border-4 border-primary">
-          <h2 className="text-2xl font-bold mb-4 text-primary uppercase">Vote for Next Contest Token</h2>
-
-          {isLoadingVoting ? (
-            <p className="text-center">Loading voting options...</p>
-          ) : !votingPeriod ? (
-            <div className="text-center py-4">
-              <p className="text-muted-foreground mb-2">No active voting period</p>
-              <p className="text-sm text-muted-foreground">
-                Check back soon to vote for the next contest token!
-              </p>
+        {/* Vote for Next Contest Token - Compact */}
+        {votingPeriod && votingOptions.length > 0 && (
+          <Card className="p-3 md:p-4 mb-4 border-2 border-primary bg-primary/5">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm md:text-base font-bold text-primary uppercase">Vote for Next Token</h3>
+              <span className="text-xs text-muted-foreground">
+                Ends: {new Date(votingPeriod.endDate).toLocaleDateString()}
+              </span>
             </div>
-          ) : (
-            <>
-              <p className="text-sm text-muted-foreground mb-4">
-                Voting ends: {new Date(votingPeriod.endDate).toLocaleDateString()}
-              </p>
-
-              {votingOptions.length === 0 ? (
-                <p className="text-center text-muted-foreground">No voting options available</p>
-              ) : (
-                <div className="space-y-3">
-                  {votingOptions.map((option) => {
-                    const percentage = getVotePercentage(option.voteCount);
-                    const isMyVote = myVote === option.id;
-
-                    return (
-                      <div
-                        key={option.id}
-                        className={`p-4 border-2 rounded ${
-                          isMyVote
-                            ? 'border-green-500 bg-green-500/10'
-                            : 'border-primary'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="text-lg font-bold text-primary uppercase">
-                                {option.tokenSymbol || option.tokenAddress.slice(0, 10)}...
-                              </h3>
-                              {isMyVote && (
-                                <span className="text-green-600 font-bold text-xs">✓ Your Vote</span>
-                              )}
-                            </div>
-                            {option.description && (
-                              <p className="text-xs text-muted-foreground mb-2">{option.description}</p>
-                            )}
-                          </div>
-                          <div className="text-right ml-2">
-                            <div className="text-xl font-bold text-primary">{option.voteCount}</div>
-                            <div className="text-xs text-muted-foreground">{percentage}%</div>
-                          </div>
-                        </div>
-
-                        {/* Vote Progress Bar */}
-                        <div className="mb-2">
-                          <div className="w-full bg-muted h-2 rounded-full overflow-hidden border border-primary">
-                            <div
-                              className={`h-full transition-all ${
-                                isMyVote ? 'bg-green-500' : 'bg-primary'
-                              }`}
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        <Button
-                          onClick={() => submitVote(option.id)}
-                          disabled={isVoting || (!walletAddress && !currentFid)}
-                          size="sm"
-                          className={`w-full text-xs ${
-                            isMyVote ? 'bg-green-600 hover:bg-green-700' : ''
-                          }`}
-                        >
-                          {isMyVote
-                            ? '✓ Voted'
-                            : isVoting
-                            ? 'Submitting...'
-                            : 'Vote'}
-                        </Button>
-                      </div>
-                    );
-                  })}
-                  <p className="text-xs text-center text-muted-foreground mt-2">
-                    Total Votes: {totalVotes}
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-        </Card>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {votingOptions.map((option) => {
+                const isMyVote = myVote === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    onClick={() => submitVote(option.id)}
+                    disabled={isVoting || (!walletAddress && !currentFid)}
+                    className={`flex-shrink-0 px-3 py-1.5 text-xs font-bold border-2 rounded transition-all ${
+                      isMyVote
+                        ? 'bg-green-600 text-white border-green-700'
+                        : 'bg-secondary border-primary hover:bg-primary/10'
+                    }`}
+                  >
+                    {isMyVote ? '✓ ' : ''}
+                    {option.tokenSymbol || option.tokenAddress.slice(0, 6)}... ({option.voteCount})
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+        )}
 
         {/* Contest Selection */}
-        <Card className="p-6 mb-6 border-4 border-primary">
-          <h2 className="text-2xl font-bold mb-4 text-primary uppercase">Select Contest</h2>
+        <Card className="p-4 md:p-6 mb-4 md:mb-6 border-4 border-primary">
+          <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-primary uppercase">Active Contests</h2>
 
           {isLoadingContests ? (
-            <p className="text-center">Loading contests...</p>
+            <p className="text-center text-sm">Loading contests...</p>
           ) : contests.length === 0 ? (
-            <p className="text-center text-muted-foreground">No active contests available</p>
+            <p className="text-center text-sm text-muted-foreground">No active contests available</p>
           ) : (
             <div className="space-y-2">
-              {contests.map((contest) => (
-                <div
-                  key={contest.id}
-                  className={`p-4 border-2 rounded cursor-pointer transition-all ${
-                    selectedContest?.id === contest.id
-                      ? 'border-primary bg-primary/10'
-                      : 'border-muted hover:border-primary/50'
-                  }`}
-                  onClick={() => setSelectedContest(contest)}
-                >
-                  <div className="flex justify-between items-center gap-4">
-                    <div className="flex items-center gap-3 flex-1">
-                      {contest.tokenLogo && (
-                        <img
-                          src={contest.tokenLogo}
-                          alt={contest.tokenName || contest.tokenSymbol || 'Token'}
-                          className="w-10 h-10 rounded-full border-2 border-primary"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      )}
-                      <div className="flex-1">
-                        <p className="font-bold text-lg">
-                          {contest.tokenName || contest.tokenSymbol || `${contest.tokenAddress.slice(0, 6)}...${contest.tokenAddress.slice(-4)}`}
-                        </p>
-                        {contest.tokenSymbol && contest.tokenName && (
-                          <p className="text-xs text-muted-foreground uppercase">{contest.tokenSymbol}</p>
+              {contests.map((contest) => {
+                const isSelected = selectedContest?.id === contest.id;
+                // Check if registered for THIS specific contest
+                const isRegistered = isSelected && position !== null;
+                
+                return (
+                  <div
+                    key={contest.id}
+                    className={`p-3 md:p-4 border-2 rounded cursor-pointer transition-all ${
+                      isSelected
+                        ? 'border-primary bg-primary/20 shadow-lg'
+                        : 'border-muted hover:border-primary/50'
+                    }`}
+                    onClick={() => {
+                      setSelectedContest(contest);
+                      setMessage(null); // Clear any previous messages
+                      // Position will load automatically via useEffect
+                    }}
+                  >
+                    <div className="flex justify-between items-center gap-3">
+                      <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                        {contest.tokenLogo && (
+                          <img
+                            src={contest.tokenLogo}
+                            alt={contest.tokenName || contest.tokenSymbol || 'Token'}
+                            className="w-8 h-8 md:w-10 md:h-10 rounded-full border-2 border-primary flex-shrink-0"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
                         )}
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {new Date(contest.startDate).toLocaleDateString()} - {new Date(contest.endDate).toLocaleDateString()}
-                        </p>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm md:text-lg truncate">
+                            {contest.tokenName || contest.tokenSymbol || `${contest.tokenAddress.slice(0, 6)}...${contest.tokenAddress.slice(-4)}`}
+                          </p>
+                          {contest.tokenSymbol && contest.tokenName && (
+                            <p className="text-xs text-muted-foreground uppercase">{contest.tokenSymbol}</p>
+                          )}
+                          <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
+                            {new Date(contest.startDate).toLocaleDateString()} - {new Date(contest.endDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0 flex items-center gap-2">
+                        {isSelected && isRegistered && (
+                          <span className="text-xs md:text-sm font-bold text-green-500 bg-green-500/20 px-2 py-1 rounded border border-green-500/50">
+                            ✓ Entered
+                          </span>
+                        )}
+                        {isSelected && !isRegistered && (
+                          <span className="text-xs md:text-sm font-bold text-primary">Selected</span>
+                        )}
                       </div>
                     </div>
-                    {selectedContest?.id === contest.id && (
-                      <span className="text-primary font-bold">✓ Selected</span>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Card>
@@ -614,13 +581,16 @@ export default function ContestsPage() {
         )}
 
         {/* Registration */}
-        {walletAddress && selectedContest && (
-          <Card className="p-6 mb-6 border-4 border-primary">
-            <h2 className="text-2xl font-bold mb-4 text-primary uppercase">Enter Contest</h2>
-            <p className="text-muted-foreground mb-4">
-              Sign a message to authorize indexing of your wallet for this contest
+        {walletAddress && selectedContest && !position && (
+          <Card className="p-4 md:p-6 mb-4 md:mb-6 border-4 border-primary">
+            <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-primary uppercase">Enter Contest</h2>
+            <p className="text-sm md:text-base text-muted-foreground mb-2">
+              Sign a message to authorize indexing of your wallet transactions for this contest token.
             </p>
-            <p className="text-sm text-muted-foreground mb-4">
+            <p className="text-xs md:text-sm text-muted-foreground mb-3 bg-primary/5 p-2 rounded border border-primary/20">
+              <strong>What happens:</strong> We'll fetch all your swap transactions for this token during the contest period, calculate your PnL, and rank you on the leaderboard.
+            </p>
+            <p className="text-xs md:text-sm text-muted-foreground mb-3 font-mono">
               Wallet: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
             </p>
 
@@ -663,47 +633,58 @@ export default function ContestsPage() {
 
             {message && (
               <div
-                className={`mt-4 p-3 rounded ${
+                className={`mt-3 md:mt-4 p-3 md:p-4 rounded-lg border-2 ${
                   message.type === 'success'
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/50'
-                    : 'bg-red-500/20 text-red-400 border border-red-500/50'
+                    ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                    : 'bg-red-500/20 text-red-400 border-red-500/50'
                 }`}
               >
-                {message.text}
+                <p className="text-sm md:text-base font-medium">{message.text}</p>
               </div>
             )}
           </Card>
         )}
 
         {/* Position Display */}
-        {position && (
-          <Card className="p-6 border-4 border-primary">
-            <h2 className="text-2xl font-bold mb-4 text-primary uppercase">Your Position</h2>
+        {position && selectedContest && (
+          <Card className="p-4 md:p-6 border-4 border-primary">
+            <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-primary uppercase">Your Position</h2>
 
             {position.status === 'indexing' ? (
-              <div className="text-center">
-                <p className="text-lg mb-2">⏳ Indexing your trades...</p>
-                <p className="text-sm text-muted-foreground">This may take a few moments</p>
+              <div className="text-center py-4">
+                <p className="text-base md:text-lg mb-2">⏳ Indexing your trades...</p>
+                <p className="text-xs md:text-sm text-muted-foreground">
+                  Fetching your transactions and calculating PnL. This may take a few moments.
+                </p>
+                <div className="mt-4">
+                  <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary animate-pulse" style={{ width: '60%' }} />
+                  </div>
+                </div>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="text-center">
-                  <p className="text-4xl font-bold text-primary mb-2">Rank #{position.rank}</p>
-                  <p className="text-muted-foreground">out of {position.totalParticipants} participants</p>
+              <div className="space-y-3 md:space-y-4">
+                <div className="text-center p-3 md:p-4 bg-primary/10 rounded-lg border-2 border-primary">
+                  <p className="text-2xl md:text-4xl font-bold text-primary mb-1">
+                    Rank #{position.rank || 'N/A'}
+                  </p>
+                  <p className="text-xs md:text-sm text-muted-foreground">
+                    out of {position.totalParticipants} participants
+                  </p>
                 </div>
 
-                <div className="text-center">
-                  <p className="text-2xl font-bold">
+                <div className="text-center p-3 md:p-4 bg-card rounded-lg border-2 border-primary/50">
+                  <p className="text-xl md:text-2xl font-bold mb-1">
                     PnL: ${position.pnl.toFixed(2)}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    {position.pnl < 0 ? 'You\'re losing! 🎉' : 'You\'re winning... 😢'}
+                  <p className="text-xs md:text-sm text-muted-foreground">
+                    {position.pnl < 0 ? 'You\'re losing! 🎉' : position.pnl > 0 ? 'You\'re winning... 😢' : 'Break even 🤷'}
                   </p>
                 </div>
 
                 <Button
                   onClick={() => window.location.href = `/contests/leaderboard?contestId=${selectedContest?.id}`}
-                  className="w-full"
+                  className="w-full text-sm md:text-base"
                 >
                   View Full Leaderboard
                 </Button>
