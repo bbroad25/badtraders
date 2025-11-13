@@ -21,6 +21,8 @@ export default function BadTradersLanding() {
   const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false)
   const [eligibilityThreshold, setEligibilityThreshold] = useState<number>(WEBSITE_ELIGIBILITY_THRESHOLD)
   const [isAddingMiniApp, setIsAddingMiniApp] = useState(false)
+  const [notificationStatus, setNotificationStatus] = useState<{ hasNotifications: boolean; tokenCount: number } | null>(null)
+  const [isCheckingNotifications, setIsCheckingNotifications] = useState(false)
   const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
   // Track initialization to prevent multiple calls
@@ -99,6 +101,13 @@ export default function BadTradersLanding() {
       setIsLoadingBalance(false)
     }
   }, [walletAddress])
+
+  // Check notification status when FID is available
+  useEffect(() => {
+    if (userFid && isInFarcaster) {
+      checkNotificationStatus()
+    }
+  }, [userFid, isInFarcaster])
 
   // Get user context from Farcaster SDK - only run once on mount
   useEffect(() => {
@@ -210,12 +219,37 @@ export default function BadTradersLanding() {
       const result = await sdk.actions.addMiniApp()
       if (result) {
         console.log('✅ Mini app added successfully')
+        // Wait a moment for webhook to process, then check status
+        setTimeout(() => {
+          checkNotificationStatus()
+        }, 2000)
       }
     } catch (error: any) {
       console.error('Error adding mini app:', error)
       alert('Failed to add mini app. Please try again.')
     } finally {
       setIsAddingMiniApp(false)
+    }
+  }
+
+  const checkNotificationStatus = async () => {
+    if (!userFid) return
+
+    try {
+      setIsCheckingNotifications(true)
+      const response = await fetch(`/api/notifications/check?fid=${userFid}`)
+      const data = await response.json()
+      
+      if (data.success) {
+        setNotificationStatus({
+          hasNotifications: data.hasNotifications,
+          tokenCount: data.tokenCount
+        })
+      }
+    } catch (error) {
+      console.error('Error checking notification status:', error)
+    } finally {
+      setIsCheckingNotifications(false)
     }
   }
 
@@ -267,13 +301,39 @@ export default function BadTradersLanding() {
                 <p className="text-xs md:text-sm text-muted-foreground mb-4 text-center">
                   Get notified about contest updates, leaderboard changes, and more. We promise not to abuse them! 🙏
                 </p>
-                <Button
-                  onClick={handleAddMiniApp}
-                  disabled={isAddingMiniApp}
-                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-sm md:text-base font-bold uppercase border-2 border-primary shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                >
-                  {isAddingMiniApp ? 'Adding...' : '➕ Add Mini App & Enable Notifications'}
-                </Button>
+                
+                {/* Notification Status */}
+                {notificationStatus !== null && (
+                  <div className={`mb-4 p-2 rounded border-2 text-center text-xs ${
+                    notificationStatus.hasNotifications
+                      ? 'bg-green-500/20 border-green-500/50 text-green-400'
+                      : 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400'
+                  }`}>
+                    {notificationStatus.hasNotifications ? (
+                      <p>✅ Notifications enabled ({notificationStatus.tokenCount} token{notificationStatus.tokenCount !== 1 ? 's' : ''} stored)</p>
+                    ) : (
+                      <p>⚠️ No notification tokens found. Add the mini app to enable.</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleAddMiniApp}
+                    disabled={isAddingMiniApp}
+                    className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 text-sm md:text-base font-bold uppercase border-2 border-primary shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                  >
+                    {isAddingMiniApp ? 'Adding...' : '➕ Add Mini App'}
+                  </Button>
+                  <Button
+                    onClick={checkNotificationStatus}
+                    disabled={isCheckingNotifications || !userFid}
+                    variant="outline"
+                    className="text-xs md:text-sm font-bold uppercase border-2 border-primary"
+                  >
+                    {isCheckingNotifications ? '...' : '🔄 Check'}
+                  </Button>
+                </div>
                 <p className="text-xs text-muted-foreground mt-2 text-center">
                   Adding the mini app enables notifications automatically
                 </p>
