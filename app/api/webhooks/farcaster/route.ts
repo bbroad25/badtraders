@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db/connection';
-import { verifyWebhookEvent } from '@farcaster/miniapp-node';
+import { parseWebhookEvent } from '@farcaster/miniapp-node';
 
 /**
  * POST /api/webhooks/farcaster
@@ -32,10 +32,10 @@ export async function POST(request: NextRequest) {
       hasSignature: !!body.signature
     });
 
-    // Verify the webhook signature
+    // Parse and verify the webhook signature
     let verifiedEvent;
     try {
-      verifiedEvent = await verifyWebhookEvent(body);
+      verifiedEvent = await parseWebhookEvent(body);
       console.log('✅ Webhook signature verified:', {
         fid: verifiedEvent.fid,
         event: verifiedEvent.event
