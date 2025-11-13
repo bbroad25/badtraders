@@ -7,6 +7,18 @@ export const WETH_ADDRESS = '0x4200000000000000000000000000000000000006';
 // The address for USDC on Base Mainnet
 export const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
+// BadTraders Burn To Earn NFT V1 - IPFS image URL (shared by all 100 V1 NFTs)
+export const BADTRADERS_BURN_TO_EARN_NFT_V1_IMAGE_IPFS = 'ipfs://QmSMwi4gTwdogBUq5Yap15MV7GN4eZF4c4DsnQwizN9LmY';
+export const BADTRADERS_BURN_TO_EARN_NFT_V1_IMAGE_GATEWAY = 'https://gateway.pinata.cloud/ipfs/QmSMwi4gTwdogBUq5Yap15MV7GN4eZF4c4DsnQwizN9LmY';
+
+// BadTraders Burn To Earn NFT V2 - IPFS image URL (shared by all 900 V2 NFTs)
+export const BADTRADERS_BURN_TO_EARN_NFT_V2_IMAGE_IPFS = 'ipfs://QmexAenCuwVzhMJQ5JWrcN92mEqGXreovk5FCMQrDZkNrf';
+export const BADTRADERS_BURN_TO_EARN_NFT_V2_IMAGE_GATEWAY = 'https://gateway.pinata.cloud/ipfs/QmexAenCuwVzhMJQ5JWrcN92mEqGXreovk5FCMQrDZkNrf';
+
+// BadTraders Bag Parent NFT - IPFS image URL (shared by all Bag NFTs)
+export const BADTRADERS_BAG_IMAGE_IPFS = 'ipfs://QmXstpY8TGKLk1di5W7jNXQuuiFzEXYfTtHsMarY2NEDcz';
+export const BADTRADERS_BAG_IMAGE_GATEWAY = 'https://ipfs.io/ipfs/QmXstpY8TGKLk1di5W7jNXQuuiFzEXYfTtHsMarY2NEDcz';
+
 // Uniswap V3 Universal Router
 export const UNISWAP_UNIVERSAL_ROUTER_ADDRESS = '0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD';
 

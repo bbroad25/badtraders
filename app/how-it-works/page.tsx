@@ -148,6 +148,80 @@ export default function HowItWorksPage() {
           </Card>
         </section>
 
+        {/* NFT Minting Section */}
+        <section className="mb-12">
+          <Card className="bg-card border-4 border-primary p-8 shadow-[12px_12px_0px_0px_rgba(147,51,234,1)]">
+            <div className="flex items-center gap-4 mb-4">
+              <span className="text-5xl">🎨</span>
+              <h2 className="text-3xl md:text-4xl font-bold uppercase">NFT MINTING SYSTEM</h2>
+            </div>
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <h3 className="text-xl md:text-2xl font-bold uppercase text-primary">BURN TO EARN NFTS (V1 & V2)</h3>
+                <p className="text-lg leading-relaxed">
+                  Prove your commitment to bad trading by <span className="font-bold text-primary">burning $BADTRADERS tokens</span> to mint exclusive NFTs.
+                </p>
+                <ul className="list-disc list-inside space-y-2 ml-4 text-lg">
+                  <li>
+                    <span className="font-bold">V1 NFTs:</span> Burn <span className="font-bold text-primary">10M tokens</span> to mint. Limited to <span className="font-bold">100 NFTs</span> total.
+                  </li>
+                  <li>
+                    <span className="font-bold">V2 NFTs:</span> Burn <span className="font-bold text-primary">25M tokens</span> to mint. Limited to <span className="font-bold">900 NFTs</span> total.
+                  </li>
+                  <li>
+                    Each NFT is numbered and includes your mint number in its metadata, making each one unique.
+                  </li>
+                  <li>
+                    These NFTs use <span className="font-bold">ERC-7401</span> composability, meaning they can be attached to parent NFTs.
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-xl md:text-2xl font-bold uppercase text-primary">BADTRADERS BAG (PARENT NFT)</h3>
+                <p className="text-lg leading-relaxed">
+                  The <span className="font-bold text-primary">BadTradersBag</span> is a special parent NFT that can hold your V1 and V2 NFTs as children.
+                </p>
+                <ul className="list-disc list-inside space-y-2 ml-4 text-lg">
+                  <li>
+                    <span className="font-bold">Free to mint</span> if you hold <span className="font-bold text-primary">5M $BADTRADERS tokens</span>.
+                  </li>
+                  <li>
+                    <span className="font-bold">Unlimited supply</span> - no cap on how many can be minted.
+                  </li>
+                  <li>
+                    <span className="font-bold">Auto-revocation:</span> If your token balance drops below 5M, keepers will automatically revoke (burn) your Bag NFT.
+                  </li>
+                  <li>
+                    Attach your V1 and V2 NFTs to your Bag to create a collection. The Bag's metadata updates to show which children are attached.
+                  </li>
+                  <li>
+                    The Bag NFT uses <span className="font-bold">ERC-7401</span> for cross-contract parent-child relationships.
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-xl md:text-2xl font-bold uppercase text-primary">HOW IT WORKS</h3>
+                <ol className="list-decimal list-inside space-y-2 ml-4 text-lg">
+                  <li>
+                    <span className="font-bold">For V1/V2:</span> Approve the NFT contract to spend your tokens, then mint. The tokens are permanently burned.
+                  </li>
+                  <li>
+                    <span className="font-bold">For Bag:</span> If you hold 5M+ tokens, mint for free. No tokens are burned.
+                  </li>
+                  <li>
+                    <span className="font-bold">Attach Children:</span> Use the <span className="font-bold">attachChild</span> function to link your V1/V2 NFTs to your Bag NFT.
+                  </li>
+                  <li>
+                    <span className="font-bold">Maintain Balance:</span> Keep 5M+ tokens to keep your Bag NFT. If you drop below, it will be auto-revoked.
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </Card>
+        </section>
+
         {/* CTA Section */}
         <section className="text-center space-y-6">
           <div className="space-y-4">
@@ -163,6 +237,15 @@ export default function HowItWorksPage() {
                 className="bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground text-xl px-12 py-8 font-bold uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
               >
                 CHECK STATUS 😂
+              </Button>
+            </Link>
+            <Link href="/mint">
+              <Button
+                size="lg"
+                variant="outline"
+                className="bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground text-xl px-12 py-8 font-bold uppercase border-4 border-primary shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+              >
+                MINT NFTS 🎨
               </Button>
             </Link>
             <Link href="/leaderboard">

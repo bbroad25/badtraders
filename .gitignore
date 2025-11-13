@@ -30,3 +30,16 @@ next-env.d.ts
 data/*.db
 data/*.db-shm
 data/*.db-wal
+
+# hardhat
+artifacts/
+cache/
+coverage/
+typechain-types/
+deployment-output.json
+deployment-output-v2.json
+test-token-deployment.json
+v1-image-ipfs.json
+v2-image-ipfs.json
+bag-image-ipfs.json
+.openzeppelin/

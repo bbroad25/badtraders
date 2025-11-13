@@ -23,6 +23,7 @@ export default function Navigation() {
 
   const navItems = [
     { href: "/", label: "HOME" },
+    { href: "/mint", label: "MINT" },
     { href: "/how-it-works", label: "HOW IT WORKS" },
     { href: "/leaderboard", label: "LOSERBOARD" },
     { href: "/users", label: "REGISTERED USERS" },

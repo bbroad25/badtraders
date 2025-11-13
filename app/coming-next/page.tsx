@@ -3,6 +3,7 @@
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
+import Link from "next/link"
 
 export default function ComingNextPage() {
   return (
@@ -90,36 +91,62 @@ export default function ComingNextPage() {
           </Card>
         </section>
 
-        {/* Buy NFTs with Burn to Mint Section */}
+        {/* NFTs with Burn to Mint Section - NOW LIVE */}
         <section className="mb-12">
           <Card className="bg-card border-4 border-primary p-8 shadow-[12px_12px_0px_0px_rgba(147,51,234,1)]">
             <div className="flex items-center gap-4 mb-6">
               <span className="text-5xl">🔥</span>
-              <h2 className="text-3xl md:text-4xl font-bold uppercase">Buy NFTs with Burn to Mint</h2>
+              <h2 className="text-3xl md:text-4xl font-bold uppercase">NFTs with Burn to Mint - NOW LIVE!</h2>
             </div>
             <div className="space-y-6">
-              <div className="relative w-full max-w-md mx-auto aspect-square mb-6">
-                <Image
-                  src="/badtraders.png"
-                  alt="Bad Traders NFT"
-                  fill
-                  className="object-contain rounded-lg"
-                  priority
-                />
-              </div>
               <div className="space-y-4 text-lg leading-relaxed">
                 <p>
-                  Coming soon: Own exclusive Bad Traders NFTs through our unique burn-to-mint mechanism.
+                  <span className="font-bold text-primary">✅ LIVE NOW:</span> Own exclusive Bad Traders NFTs through our unique burn-to-mint mechanism.
                   Burn your $BADTRADERS tokens to create one-of-a-kind NFT collectibles that celebrate
                   your terrible trading skills.
                 </p>
-                <p>
-                  Each NFT will be unique, featuring our iconic Bad Traders mascot and commemorating
-                  your commitment to being the worst trader in the game. The more you burn, the rarer
-                  your NFT becomes.
-                </p>
-                <p className="font-bold text-primary">
-                  Join the chaos and turn your bad trades into digital art! 🎨
+
+                <div className="bg-primary/10 border-4 border-primary p-6 rounded-lg space-y-4">
+                  <h3 className="text-xl md:text-2xl font-bold uppercase text-primary">V1 & V2 BURN TO EARN NFTS</h3>
+                  <ul className="list-disc list-inside space-y-2 ml-4">
+                    <li>
+                      <span className="font-bold">V1:</span> Burn <span className="font-bold text-primary">10M tokens</span> to mint. Limited to <span className="font-bold">100 NFTs</span>.
+                    </li>
+                    <li>
+                      <span className="font-bold">V2:</span> Burn <span className="font-bold text-primary">25M tokens</span> to mint. Limited to <span className="font-bold">900 NFTs</span>.
+                    </li>
+                    <li>
+                      Each NFT is numbered and includes your mint number in its metadata.
+                    </li>
+                    <li>
+                      Uses <span className="font-bold">ERC-7401</span> composability - can be attached to parent NFTs.
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="bg-primary/10 border-4 border-primary p-6 rounded-lg space-y-4">
+                  <h3 className="text-xl md:text-2xl font-bold uppercase text-primary">BADTRADERS BAG (PARENT NFT)</h3>
+                  <ul className="list-disc list-inside space-y-2 ml-4">
+                    <li>
+                      <span className="font-bold">Free to mint</span> if you hold <span className="font-bold text-primary">5M+ tokens</span>.
+                    </li>
+                    <li>
+                      <span className="font-bold">Unlimited supply</span> - no cap.
+                    </li>
+                    <li>
+                      Can hold V1 and V2 NFTs as children using <span className="font-bold">ERC-7401</span>.
+                    </li>
+                    <li>
+                      <span className="font-bold">Auto-revocation:</span> If your balance drops below 5M, keepers will automatically revoke your Bag NFT.
+                    </li>
+                    <li>
+                      The Bag's metadata updates dynamically to show which children are attached.
+                    </li>
+                  </ul>
+                </div>
+
+                <p className="font-bold text-primary text-xl">
+                  Visit the <Link href="/mint" className="underline hover:text-primary/80">Mint page</Link> to get started! 🎨
                 </p>
               </div>
             </div>

@@ -1,35 +1,33 @@
 "use client"
 
-import ErrorMessage from '@/components/leaderboard/ErrorMessage';
-import Header from '@/components/leaderboard/Header';
-import Leaderboard from '@/components/leaderboard/Leaderboard';
-import MemeOfTheWeek from '@/components/leaderboard/MemeOfTheWeek';
-import MyStatus from '@/components/leaderboard/MyStatus';
+import MintNFT from '@/components/leaderboard/MintNFT';
 import { Button } from '@/components/ui/button';
-import { LeaderboardEntry } from '@/types/leaderboard';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Info } from 'lucide-react';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { useCallback, useEffect, useState, useRef } from 'react';
 
-const FARCASTER_ELIGIBILITY_THRESHOLD = 1_000_000; // 1M for Farcaster miniapp users (competition eligibility)
-const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000; // 2M for website users (competition eligibility)
-const BADTRADERS_CONTRACT = '0x0774409Cda69A47f272907fd5D0d80173167BB07';
+const FARCASTER_ELIGIBILITY_THRESHOLD = 10_000_000; // 10M for Farcaster miniapp users (NFT mint threshold)
+const WEBSITE_ELIGIBILITY_THRESHOLD = 10_000_000; // 10M for website users (NFT mint threshold)
 
-export default function LeaderboardPage() {
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState<boolean>(true);
+export default function MintPage() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [userFid, setUserFid] = useState<number | null>(null);
   const [userBalance, setUserBalance] = useState<number>(0);
   const [isEligible, setIsEligible] = useState<boolean>(false);
   const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false);
   const [eligibilityThreshold, setEligibilityThreshold] = useState<number>(WEBSITE_ELIGIBILITY_THRESHOLD);
-  const [memeImageUrl, setMemeImageUrl] = useState<string | null>(null);
-  const [isGeneratingMeme, setIsGeneratingMeme] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // Track initialization to prevent multiple calls
   const hasInitialized = useRef(false);
-  const providerRef = useRef<any>(null);
   const walletAddressRef = useRef<string | null>(null);
 
   const loadTokenBalance = useCallback(async (fid: number | null, address: string | null = null) => {
@@ -101,7 +99,7 @@ export default function LeaderboardPage() {
     } finally {
       setIsLoadingBalance(false);
     }
-  }, [walletAddress]);
+  }, [walletAddress, userFid]);
 
   // Get user context from Farcaster SDK - only run once on mount
   useEffect(() => {
@@ -163,28 +161,6 @@ export default function LeaderboardPage() {
     };
   }, [loadTokenBalance, userFid]); // Add userFid to deps - if we have FID, skip wallet checks
 
-  useEffect(() => {
-    const loadLeaderboard = async () => {
-      setIsLoadingLeaderboard(true);
-      setError(null);
-      try {
-        const response = await fetch('/api/leaderboard');
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-        }
-        const data: LeaderboardEntry[] = await response.json();
-        setLeaderboard(data);
-      } catch (err) {
-         console.error(err);
-         setError(err instanceof Error ? err.message : 'Could not load the leaderboard. Please check if the API is working.');
-      } finally {
-        setIsLoadingLeaderboard(false);
-      }
-    };
-    loadLeaderboard();
-  }, []);
-
   const handleConnectWallet = useCallback(async () => {
     try {
       // Don't do anything if in Farcaster - wallet is handled by Farcaster SDK
@@ -218,69 +194,123 @@ export default function LeaderboardPage() {
     }
   }, [loadTokenBalance]);
 
-  // handleBuyMore removed - now handled by MyStatus component with swapToken
-
-  // Remove duplicate addMiniApp call - already handled by FarcasterSDKInit in layout
-
-  // Notifications are handled by Farcaster client's native menu
-  // No custom UI needed
-
-  const handleGenerateMeme = useCallback(async () => {
-    const winner = leaderboard[0];
-    if (!winner) {
-      setError('Leaderboard is empty, cannot NFT your losses.');
-      return;
-    }
-    setIsGeneratingMeme(true);
-    setError(null);
-    setMemeImageUrl(null);
-
-    try {
-      const response = await fetch('/api/meme', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(winner),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to mint NFT');
-      }
-
-      const { imageUrl } = await response.json();
-      setMemeImageUrl(imageUrl);
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'An unknown error occurred while minting your loss NFT.');
-    } finally {
-      setIsGeneratingMeme(false);
-    }
-  }, [leaderboard]);
-
   return (
     <div className="min-h-screen bg-background text-foreground pt-16">
-      {/* Floating emojis */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-[10%] left-[5%] text-6xl opacity-20 emoji-float-1">😂</div>
-        <div className="absolute top-[20%] right-[10%] text-5xl opacity-15 emoji-float-2">😭</div>
-        <div className="absolute top-[40%] left-[15%] text-7xl opacity-10 emoji-float-3">😂</div>
-        <div className="absolute top-[60%] right-[20%] text-6xl opacity-20 emoji-float-1">😭</div>
-        <div className="absolute top-[80%] left-[25%] text-5xl opacity-15 emoji-float-2">😂</div>
-        <div className="absolute top-[30%] right-[5%] text-8xl opacity-10 emoji-float-3">😭</div>
-        <div className="absolute top-[70%] right-[40%] text-6xl opacity-15 emoji-float-1">😂</div>
-        <div className="absolute top-[15%] left-[40%] text-5xl opacity-20 emoji-float-2">😭</div>
-      </div>
-
       {/* Main content */}
       <div className="relative z-10">
-        <section className="min-h-screen flex flex-col items-center justify-center px-4 py-20 border-b-4 border-primary">
-          <div className="container mx-auto max-w-6xl">
-            <Header />
-            {/* Wallet status inline in leaderboard */}
+        <section className="min-h-screen flex flex-col items-center justify-center px-4 py-20">
+          <div className="container mx-auto max-w-4xl relative">
+            {/* Info Button - Top Right Corner */}
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-0 right-0 h-8 w-8 rounded-full border-2 border-primary hover:bg-primary/10"
+                  aria-label="About NFT Minting"
+                >
+                  <Info className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="text-3xl font-bold uppercase text-primary">
+                    About NFT Minting 🎨
+                  </DialogTitle>
+                  <DialogDescription className="text-base">
+                    Learn how the BadTraders NFT system works
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-6 mt-4">
+                  <div className="space-y-3">
+                    <h3 className="text-xl font-bold uppercase text-primary">BURN TO EARN NFTS (V1 & V2)</h3>
+                    <p className="text-base leading-relaxed">
+                      Prove your commitment to bad trading by <span className="font-bold text-primary">burning $BADTRADERS tokens</span> to mint exclusive NFTs.
+                    </p>
+                    <ul className="list-disc list-inside space-y-2 ml-4 text-base">
+                      <li>
+                        <span className="font-bold">V1 NFTs:</span> Burn <span className="font-bold text-primary">10M tokens</span> to mint. Limited to <span className="font-bold">100 NFTs</span> total.
+                      </li>
+                      <li>
+                        <span className="font-bold">V2 NFTs:</span> Burn <span className="font-bold text-primary">25M tokens</span> to mint. Limited to <span className="font-bold">900 NFTs</span> total.
+                      </li>
+                      <li>
+                        Each NFT is numbered and includes your mint number in its metadata, making each one unique.
+                      </li>
+                      <li>
+                        These NFTs use <span className="font-bold">ERC-7401</span> composability, meaning they can be attached to parent NFTs.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-xl font-bold uppercase text-primary">BADTRADERS BAG (PARENT NFT)</h3>
+                    <p className="text-base leading-relaxed">
+                      The <span className="font-bold text-primary">BadTradersBag</span> is a special parent NFT that can hold your V1 and V2 NFTs as children.
+                    </p>
+                    <ul className="list-disc list-inside space-y-2 ml-4 text-base">
+                      <li>
+                        <span className="font-bold">Free to mint</span> if you hold <span className="font-bold text-primary">5M $BADTRADERS tokens</span>.
+                      </li>
+                      <li>
+                        <span className="font-bold">Unlimited supply</span> - no cap on how many can be minted.
+                      </li>
+                      <li>
+                        <span className="font-bold">Auto-revocation:</span> If your token balance drops below 5M, keepers will automatically revoke (burn) your Bag NFT.
+                      </li>
+                      <li>
+                        Attach your V1 and V2 NFTs to your Bag to create a collection. The Bag's metadata updates to show which children are attached.
+                      </li>
+                      <li>
+                        The Bag NFT uses <span className="font-bold">ERC-7401</span> for cross-contract parent-child relationships.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-xl font-bold uppercase text-primary">HOW IT WORKS</h3>
+                    <ol className="list-decimal list-inside space-y-2 ml-4 text-base">
+                      <li>
+                        <span className="font-bold">For V1/V2:</span> Approve the NFT contract to spend your tokens, then mint. The tokens are permanently burned.
+                      </li>
+                      <li>
+                        <span className="font-bold">For Bag:</span> If you hold 5M+ tokens, mint for free. No tokens are burned.
+                      </li>
+                      <li>
+                        <span className="font-bold">Attach Children:</span> Use the <span className="font-bold">attachChild</span> function to link your V1/V2 NFTs to your Bag NFT.
+                      </li>
+                      <li>
+                        <span className="font-bold">Maintain Balance:</span> Keep 5M+ tokens to keep your Bag NFT. If you drop below, it will be auto-revoked.
+                      </li>
+                    </ol>
+                  </div>
+
+                  <div className="bg-primary/10 border-4 border-primary p-4 rounded-lg">
+                    <p className="text-sm font-bold text-primary uppercase mb-2">⚠️ Important Notes</p>
+                    <ul className="list-disc list-inside space-y-1 ml-4 text-sm">
+                      <li>Burned tokens are permanently removed from circulation</li>
+                      <li>Bag NFTs require maintaining a 5M token balance</li>
+                      <li>All NFTs use IPFS for decentralized image storage</li>
+                      <li>Contracts are upgradeable via UUPS proxy</li>
+                    </ul>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <h1 className="text-5xl md:text-6xl font-bold mb-8 text-center text-foreground uppercase">
+              MINT NFT
+            </h1>
+            <p className="text-xl md:text-2xl text-center text-muted-foreground mb-12 uppercase">
+              Mint your BadTraders NFTs
+            </p>
+            <p className="text-lg text-center text-muted-foreground mb-12">
+              Bag: Free mint (5M tokens required, unlimited) • V1: Burn 10M tokens (100 NFTs max) • V2: Burn 25M tokens (900 NFTs max)
+            </p>
+
+            {/* Wallet status */}
             {walletAddress && (
-              <div className="text-center mb-4">
+              <div className="text-center mb-6">
                 <div className="inline-block bg-card border-2 border-primary p-2 rounded">
                   <div className="text-xs text-muted-foreground uppercase">
                     Wallet: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
@@ -294,45 +324,47 @@ export default function LeaderboardPage() {
               </div>
             )}
             {!walletAddress && (
-              <div className="text-center mb-4">
+              <div className="text-center mb-6">
                 <Button
                   onClick={handleConnectWallet}
-                  size="sm"
-                  className="bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground uppercase border-2 border-foreground"
+                  size="lg"
+                  className="bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground uppercase border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 >
                   Connect Wallet
                 </Button>
               </div>
             )}
-            <main className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-              <div className="lg:col-span-2">
-                <Leaderboard data={leaderboard} isLoading={isLoadingLeaderboard} />
-              </div>
-              <div className="flex flex-col gap-8">
-                <MyStatus
-                  walletAddress={walletAddress}
+
+            {/* Mint NFT Component */}
+            <div className="flex justify-center">
+              <div className="w-full max-w-6xl">
+                <MintNFT
+                  hasEnoughTokens={isEligible}
                   balance={userBalance}
-                  isEligible={isEligible}
                   threshold={eligibilityThreshold}
-                  isLoadingBalance={isLoadingBalance}
-                  fid={userFid}
-                />
-                <MemeOfTheWeek
-                  winner={leaderboard[0]}
-                  onGenerate={handleGenerateMeme}
-                  isLoading={isGeneratingMeme}
-                  imageUrl={memeImageUrl}
+                  walletAddress={walletAddress}
                 />
               </div>
-            </main>
-            {error && <ErrorMessage message={error} />}
-            <footer className="text-center text-muted-foreground mt-12 pb-4">
-              <p className="uppercase">Powered by Farcaster, Neynar, Alchemy & Gemini.</p>
-            </footer>
+            </div>
+
+            {error && (
+              <div className="mt-6 text-center">
+                <div className="bg-destructive/20 border-2 border-destructive p-4 rounded inline-block">
+                  <p className="text-destructive text-sm uppercase">{error}</p>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       </div>
     </div>
   );
+}
+
+// Extend Window interface for TypeScript
+declare global {
+  interface Window {
+    ethereum?: any
+  }
 }
 
