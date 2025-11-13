@@ -1301,7 +1301,7 @@ export default function StatsPage() {
 
         {/* Indexer Analytics Tab */}
         {mainTab === 'indexer-analytics' && (
-          <>
+          <div>
         {/* Stats Cards */}
         {stats ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -1874,10 +1874,9 @@ export default function StatsPage() {
                 </CardContent>
               </Card>
             )}
-
           </>
         )}
-        </>
+        </div>
         )}
 
         <div className="mt-8 text-center">
