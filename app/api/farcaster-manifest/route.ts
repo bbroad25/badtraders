@@ -8,6 +8,16 @@ export async function GET(req: NextRequest) {
 
   // Normalize domain - remove www for canonicalDomain but keep it in URLs
   const canonicalDomain = host.replace(/^www\./, '');
+
+  // Get Neynar app ID from environment variable
+  const neynarAppId = process.env.NEYNAR_CLIENT_ID;
+  if (!neynarAppId) {
+    console.error('NEYNAR_CLIENT_ID is not set in environment variables');
+  }
+  const webhookUrl = neynarAppId
+    ? `https://api.neynar.com/f/app/${neynarAppId}/event`
+    : undefined;
+
   const manifest = {
     miniapp: {
       version: "1",
@@ -21,7 +31,6 @@ export async function GET(req: NextRequest) {
       tagline: "We trade bad but we fun good",
       description: "Track the biggest weekly losses. The BadTrader competition leaderboard.",
       primaryCategory: "social",
-      webhookUrl: `${baseUrl}/api/webhooks/farcaster`
     },
     accountAssociation: {
       header: "eyJmaWQiOjcyMTIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhBODU1ZmFFNEZmY0M1OUM3N0M3NkRjZmEzYUJmREY3NEEyMzQ0YTE4In0",
@@ -29,6 +38,11 @@ export async function GET(req: NextRequest) {
       signature: "UMNPzKG3f1sr1ZfgCKpuFhgFMhpodHLaIY+wrTTNXfQE8IbyzlXtDqKYSjTcLAMH9sYWOueC7UTvs2t2ViKJRRs="
     }
   };
+
+  // Add webhookUrl if Neynar client ID is configured
+  if (webhookUrl) {
+    manifest.miniapp.webhookUrl = webhookUrl;
+  }
 
   return NextResponse.json(manifest, {
     headers: {
