@@ -2,12 +2,14 @@
 // Bitquery GraphQL API V2 client for Base chain DEX trades
 //
 // V2 API Features:
-// - Endpoint: https://streaming.bitquery.io/graphql
-// - Real-time data access and WebSocket subscriptions
-// - OAuth tokens or API keys (as Bearer token) for authentication
+// - Endpoint: https://streaming.bitquery.io/graphql (for Base chain)
+// - Historical data access with dataset: combined or dataset: archive
+// - API keys via X-API-KEY header for authentication
 // - Improved performance and reliability
+// - Uppercase field names (Block, Transaction, Trade, etc.)
 //
 // Documentation: https://docs.bitquery.io/docs/blockchain/Base/
+// Base Historical Queries: Use EVM(dataset: combined, network: base) with DEXTrades
 
 import { query } from '@/lib/db/connection';
 import { USDC_ADDRESS, WETH_ADDRESS } from '@/lib/utils/constants';
@@ -15,6 +17,18 @@ import { logInfo, logWarn } from './indexerLogger';
 import { SwapDetails } from './swapTypes';
 
 const BITQUERY_API_KEY = process.env.BITQUERY_API_KEY;
+// Base chain requires streaming endpoint for V2 API
+const DEFAULT_BITQUERY_ENDPOINT = 'https://streaming.bitquery.io/graphql';
+const STREAMING_BITQUERY_ENDPOINT = 'https://streaming.bitquery.io/graphql';
+let activeBitqueryEndpoint = (process.env.BITQUERY_ENDPOINT || DEFAULT_BITQUERY_ENDPOINT).trim();
+
+const maskedApiKey = BITQUERY_API_KEY
+  ? BITQUERY_API_KEY.trim().length <= 8
+    ? `${BITQUERY_API_KEY.trim().slice(0, 2)}***`
+    : `${BITQUERY_API_KEY.trim().slice(0, 4)}...${BITQUERY_API_KEY.trim().slice(-4)}`
+  : 'MISSING';
+
+logInfo(`[Bitquery] API key detected: ${BITQUERY_API_KEY ? 'present' : 'missing'} | mask=${maskedApiKey}`);
 
 /**
  * Check if an address is a known protocol contract (fee lockers, LP lockers, etc.)
@@ -45,15 +59,15 @@ function isProtocolContract(address: string, protocolName?: string): boolean {
  * Check if a swap appears to be a protocol fee transfer rather than a user swap
  * This filters out internal protocol mechanics like fee lockers
  */
-function isProtocolFeeTransfer(
+export function isProtocolFeeTransfer(
   trade: BitqueryDEXTrade,
   swapWallet: string,
   trackedTokenAddresses: string[]
 ): boolean {
   const protocolName = trade.Trade.Dex.ProtocolName?.toLowerCase() || '';
   const swapWalletLower = swapWallet.toLowerCase();
-  const buyer = trade.Trade.Buy.Buyer?.toLowerCase() || '';
-  const seller = trade.Trade.Sell.Seller?.toLowerCase() || '';
+  // V2 API has separate Buyer and Seller fields
+  const txFrom = trade.Transaction.From?.toLowerCase() || '';
 
   // Get USD values to check if this is a suspiciously small fee transfer
   const buyUsdValue = trade.Trade.Buy.AmountInUSD || 0;
@@ -86,8 +100,8 @@ function isProtocolFeeTransfer(
 
   return false;
 }
-// V2 API endpoint - supports real-time data and WebSocket subscriptions
-const BITQUERY_ENDPOINT = 'https://streaming.bitquery.io/graphql';
+// Default GraphQL endpoint for historical queries; override via env for streaming plans
+const BITQUERY_ENDPOINT = activeBitqueryEndpoint;
 
 // Base tokens used for BUY/SELL classification (in order of preference)
 const BASE_TOKENS = [
@@ -98,36 +112,48 @@ const BASE_TOKENS = [
   '0x50c5725949a6f0c72e6c4a641f24049a917db0cb', // DAI
 ].map(addr => addr.toLowerCase());
 
-interface BitqueryDEXTrade {
+// V2 API response structure (uppercase fields) - from Base Historical Queries docs
+export interface BitqueryDEXTrade {
   Block: {
     Time: string;
     Number: number;
+    Date?: string;
   };
   Transaction: {
     Hash: string;
     From: string;
+    To?: string;
+    Gas?: number;
   };
   Trade: {
-    Dex: {
-      ProtocolName: string;
-    };
     Buy: {
-      Amount: string; // Actual token amount (in wei/smallest unit)
+      Amount: string;
       AmountInUSD: number;
-      Buyer: string; // Wallet that bought
+      PriceInUSD?: number;
       Currency: {
+        Name?: string;
         Symbol: string;
         SmartContract: string;
+        Decimals?: number;
       };
+      Buyer: string;
     };
     Sell: {
-      Amount: string; // Actual token amount (in wei/smallest unit)
+      Amount: string;
       AmountInUSD: number;
-      Seller: string; // Wallet that sold
+      PriceInUSD?: number;
       Currency: {
+        Name?: string;
         Symbol: string;
         SmartContract: string;
+        Decimals?: number;
       };
+      Seller: string;
+    };
+    Dex: {
+      ProtocolName: string;
+      ProtocolFamily?: string;
+      SmartContract?: string;
     };
   };
 }
@@ -139,6 +165,19 @@ interface BitqueryResponse {
     };
   };
   errors?: Array<{ message: string }>;
+}
+
+export interface BitqueryTradeGroup {
+  txHash: string;
+  trades: BitqueryDEXTrade[];
+  blockNumber: number;
+  blockTime: string;
+  transactionFrom: string;
+}
+
+interface TokenSwapFetchResult {
+  groups: BitqueryTradeGroup[];
+  trackedTokenAddresses: string[];
 }
 
 /**
@@ -191,21 +230,65 @@ async function executeBitqueryQuery(queryString: string, variables?: Record<stri
     throw new Error('BITQUERY_API_KEY not configured');
   }
 
-  const authHeader = BITQUERY_API_KEY.startsWith('Bearer ')
-    ? BITQUERY_API_KEY
-    : `Bearer ${BITQUERY_API_KEY}`;
+  const apiKeyRaw = BITQUERY_API_KEY.trim();
+  if (apiKeyRaw.length === 0) {
+    throw new Error('BITQUERY_API_KEY is empty after trimming');
+  }
 
-  const response = await fetch(BITQUERY_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': authHeader,
-    },
-    body: JSON.stringify({
-      query: queryString,
-      variables: variables || {},
-    }),
-  });
+  const hasBearerPrefix = apiKeyRaw.toLowerCase().startsWith('bearer ');
+  const tokenValue = hasBearerPrefix ? apiKeyRaw.slice(7).trim() : apiKeyRaw;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-API-KEY': tokenValue,
+    'Authorization': hasBearerPrefix ? apiKeyRaw : `Bearer ${tokenValue}`,
+  };
+
+  const maskedKey = tokenValue.length <= 8
+    ? `${tokenValue.slice(0, 2)}***`
+    : `${tokenValue.slice(0, 4)}...${tokenValue.slice(-4)}`;
+
+  const sendRequest = async (endpoint: string) =>
+    fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        query: queryString,
+        variables: variables || {},
+      }),
+    });
+
+  let endpointUsed = activeBitqueryEndpoint;
+  let response = await sendRequest(endpointUsed);
+
+  if (response.status === 401) {
+    logWarn(`[Bitquery] 401 Unauthorized | endpoint=${endpointUsed} | hasAuth=${headers['Authorization'] ? 'yes' : 'no'} | hasXApiKey=${headers['X-API-KEY'] ? 'yes' : 'no'} | keyMask=${maskedKey}`);
+
+    const fallbackEndpoint = DEFAULT_BITQUERY_ENDPOINT;
+    const canFallback = endpointUsed !== fallbackEndpoint;
+
+    if (canFallback) {
+      logWarn(`[Bitquery] Retrying with fallback endpoint ${fallbackEndpoint}`);
+      endpointUsed = fallbackEndpoint;
+      activeBitqueryEndpoint = fallbackEndpoint;
+      response = await sendRequest(endpointUsed);
+
+      if (response.status === 401) {
+        logWarn(`[Bitquery] 401 Unauthorized on fallback endpoint as well | keyMask=${maskedKey}`);
+      }
+    }
+
+    if (response.status === 401 && endpointUsed !== STREAMING_BITQUERY_ENDPOINT) {
+      logWarn(`[Bitquery] Retrying with streaming endpoint ${STREAMING_BITQUERY_ENDPOINT}`);
+      endpointUsed = STREAMING_BITQUERY_ENDPOINT;
+      activeBitqueryEndpoint = STREAMING_BITQUERY_ENDPOINT;
+      response = await sendRequest(endpointUsed);
+
+      if (response.status === 401) {
+        logWarn(`[Bitquery] 401 Unauthorized on streaming endpoint as well | keyMask=${maskedKey}`);
+      }
+    }
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -214,28 +297,273 @@ async function executeBitqueryQuery(queryString: string, variables?: Record<stri
 
   const jsonData = await response.json();
 
-  // Check for GraphQL errors first
   if (jsonData.errors && jsonData.errors.length > 0) {
     const errorMessages = jsonData.errors.map((e: any) => e.message).join(', ');
+    const fullErrors = jsonData.errors.map((e: any) => JSON.stringify(e)).join(', ');
+    logWarn(`[Bitquery] GraphQL errors: ${errorMessages} | Full: ${fullErrors}`);
     throw new Error(`Bitquery GraphQL errors: ${errorMessages}`);
   }
 
-  // Return data directly (not data.data)
   return jsonData.data || jsonData;
+}
+
+/**
+ * Minimal test query to verify V2 API access and structure
+ * Uses exact V2 syntax: EVM(dataset: archive, network: base) with where clause
+ */
+export async function testMinimalBitqueryQuery(tokenAddress: string): Promise<any> {
+  if (!BITQUERY_API_KEY) {
+    throw new Error('BITQUERY_API_KEY not configured');
+  }
+
+  const tokenAddr = tokenAddress.toLowerCase();
+
+  // Use recent date for testing (combined dataset works better than archive)
+  const startDate = "2024-01-01T00:00:00Z";
+
+  // Use streaming endpoint for Base chain queries (V2 API)
+  // Bitquery LLM confirmed: use https://streaming.bitquery.io/graphql for Base
+  const originalEndpoint = activeBitqueryEndpoint;
+  activeBitqueryEndpoint = STREAMING_BITQUERY_ENDPOINT;
+
+  logInfo(`[Bitquery Test] Using streaming endpoint: ${activeBitqueryEndpoint}`);
+  logInfo(`[Bitquery Test] API Key present: ${BITQUERY_API_KEY ? 'yes' : 'no'}`);
+
+  // Use EXACT structure from Bitquery LLM response
+  // Use dataset: combined (works better than archive for Base)
+  const queryString = `
+query TestMinimalQuery($tokenAddress: String!, $startDate: DateTime!) {
+  EVM(dataset: combined, network: base) {
+    DEXTrades(
+      where: {
+        any: [
+          {Trade: {Buy: {Currency: {SmartContract: {is: $tokenAddress}}}}}
+          {Trade: {Sell: {Currency: {SmartContract: {is: $tokenAddress}}}}}
+        ]
+        Block: {Time: {since: $startDate}}
+      }
+      orderBy: {ascending: Block_Time}
+      limit: {count: 1}
+    ) {
+      Block {
+        Time
+        Number
+      }
+      Transaction {
+        Hash
+      }
+      Trade {
+        Buy {
+          Currency {
+            SmartContract
+          }
+        }
+        Sell {
+          Currency {
+            SmartContract
+          }
+        }
+      }
+    }
+  }
+}
+  `;
+
+  const variables = {
+    tokenAddress: tokenAddr,
+    startDate: startDate
+  };
+
+  try {
+    const result = await executeBitqueryQuery(queryString, variables);
+    return result;
+  } finally {
+    // Restore original endpoint
+    activeBitqueryEndpoint = originalEndpoint;
+  }
+}
+
+/**
+ * Test time-based filtering (Step 2)
+ * Verifies that Block.Time filtering works correctly
+ */
+export async function testTimeFilteredQuery(
+  tokenAddress: string,
+  startDate: string,
+  endDate: string
+): Promise<any> {
+  if (!BITQUERY_API_KEY) {
+    throw new Error('BITQUERY_API_KEY not configured');
+  }
+
+  const tokenAddr = tokenAddress.toLowerCase();
+  const originalEndpoint = activeBitqueryEndpoint;
+  activeBitqueryEndpoint = STREAMING_BITQUERY_ENDPOINT;
+
+  const queryString = `
+query TestTimeFilter($tokenAddress: String!, $startDate: DateTime!, $endDate: DateTime!) {
+  EVM(dataset: combined, network: base) {
+    DEXTrades(
+      where: {
+        any: [
+          {Trade: {Buy: {Currency: {SmartContract: {is: $tokenAddress}}}}}
+          {Trade: {Sell: {Currency: {SmartContract: {is: $tokenAddress}}}}}
+        ]
+        Block: {
+          Time: {
+            since: $startDate
+            till: $endDate
+          }
+        }
+      }
+      orderBy: {ascending: Block_Time}
+      limit: {count: 10}
+    ) {
+      Block {
+        Time
+        Number
+      }
+      Transaction {
+        Hash
+      }
+      Trade {
+        Buy {
+          Currency {
+            SmartContract
+          }
+        }
+        Sell {
+          Currency {
+            SmartContract
+          }
+        }
+      }
+    }
+  }
+}
+  `;
+
+  const variables = {
+    tokenAddress: tokenAddr,
+    startDate: startDate,
+    endDate: endDate
+  };
+
+  try {
+    return await executeBitqueryQuery(queryString, variables);
+  } finally {
+    activeBitqueryEndpoint = originalEndpoint;
+  }
+}
+
+/**
+ * Test complete field structure (Step 3)
+ * Verifies all V2 fields from Base Historical Queries docs are present
+ */
+export async function testCompleteFieldsQuery(tokenAddress: string): Promise<any> {
+  if (!BITQUERY_API_KEY) {
+    throw new Error('BITQUERY_API_KEY not configured');
+  }
+
+  const tokenAddr = tokenAddress.toLowerCase();
+  const startDate = "2024-01-01T00:00:00Z";
+  const originalEndpoint = activeBitqueryEndpoint;
+  activeBitqueryEndpoint = STREAMING_BITQUERY_ENDPOINT;
+
+  // Use complete field structure from Base Historical Queries docs
+  const queryString = `
+query TestCompleteFields($tokenAddress: String!, $startDate: DateTime!) {
+  EVM(dataset: combined, network: base) {
+    DEXTrades(
+      where: {
+        any: [
+          {Trade: {Buy: {Currency: {SmartContract: {is: $tokenAddress}}}}}
+          {Trade: {Sell: {Currency: {SmartContract: {is: $tokenAddress}}}}}
+        ]
+        Block: {Time: {since: $startDate}}
+      }
+      orderBy: {ascending: Block_Time}
+      limit: {count: 1}
+    ) {
+      Block {
+        Time
+        Number
+        Date
+      }
+      Transaction {
+        Hash
+        From
+        To
+        Gas
+      }
+      Trade {
+        Buy {
+          Amount
+          AmountInUSD
+          PriceInUSD
+          Currency {
+            Name
+            Symbol
+            SmartContract
+            Decimals
+          }
+          Buyer
+        }
+        Sell {
+          Amount
+          AmountInUSD
+          PriceInUSD
+          Currency {
+            Name
+            Symbol
+            SmartContract
+            Decimals
+          }
+          Seller
+        }
+        Dex {
+          ProtocolName
+          ProtocolFamily
+          SmartContract
+        }
+      }
+    }
+  }
+}
+  `;
+
+  const variables = {
+    tokenAddress: tokenAddr,
+    startDate: startDate
+  };
+
+  try {
+    return await executeBitqueryQuery(queryString, variables);
+  } finally {
+    activeBitqueryEndpoint = originalEndpoint;
+  }
 }
 
 /**
  * Transform Bitquery trade to SwapDetails format
  */
-async function transformBitqueryTrade(
+export async function transformBitqueryTrade(
   trade: BitqueryDEXTrade,
   walletAddress: string,
-  trackedTokenAddresses: string[]
+  trackedTokenAddresses: string[],
+  legIndex?: number,
+  options?: {
+    protocolName?: string | null;
+    isProtocolFee?: boolean;
+  }
 ): Promise<SwapDetails | null> {
+  const effectiveLegIndex = legIndex ?? 0;
   const buyToken = trade.Trade.Buy.Currency.SmartContract.toLowerCase();
   const sellToken = trade.Trade.Sell.Currency.SmartContract.toLowerCase();
   const txHash = trade.Transaction.Hash.toLowerCase();
-  const blockNumber = trade.Block.Number;
+  const blockNumber = typeof trade.Block.Number === 'string'
+    ? parseInt(trade.Block.Number, 10)
+    : trade.Block.Number;
   const timestamp = new Date(trade.Block.Time);
 
   // Determine which token is the tracked token
@@ -277,11 +605,9 @@ async function transformBitqueryTrade(
   const side: 'BUY' | 'SELL' = isTrackedTokenBuy ? 'BUY' : 'SELL';
 
   // Verify wallet matches expected side for debugging
-  const expectedBuyer = trade.Trade.Buy.Buyer?.toLowerCase();
-  const expectedSeller = trade.Trade.Sell.Seller?.toLowerCase();
-  const walletMatchesExpected = isTrackedTokenBuy
-    ? (walletAddress.toLowerCase() === expectedBuyer)
-    : (walletAddress.toLowerCase() === expectedSeller);
+  // V2 API uses Transaction.From for transaction sender
+  const txFrom = trade.Transaction.From?.toLowerCase() || '';
+  const walletMatchesExpected = walletAddress.toLowerCase() === txFrom;
 
   // Note: Debug logging removed here - wallet verification happens in calling function
 
@@ -302,8 +628,8 @@ async function transformBitqueryTrade(
 
   // Buy.Amount is the amount of the token being bought (in its decimals)
   // Sell.Amount is the amount of the token being sold (in its decimals)
-  const buyTokenDecimals = await getTokenDecimals(buyToken);
-  const sellTokenDecimals = await getTokenDecimals(sellToken);
+  const buyTokenDecimals = trade.Trade.Buy.Currency.Decimals || await getTokenDecimals(buyToken);
+  const sellTokenDecimals = trade.Trade.Sell.Currency.Decimals || await getTokenDecimals(sellToken);
 
   const buyAmount = parseAmount(trade.Trade.Buy.Amount, buyTokenDecimals);
   const sellAmount = parseAmount(trade.Trade.Sell.Amount, sellTokenDecimals);
@@ -322,18 +648,22 @@ async function transformBitqueryTrade(
   const trackedTokenDecimals = await getTokenDecimals(trackedToken);
   const baseTokenDecimals = await getTokenDecimals(baseToken);
 
-  // Calculate USD values from Bitquery's AmountInUSD
+  // Calculate USD values from Bitquery's USD amounts (V2 API)
   // For BUY: tracked token USD = Buy.AmountInUSD (what was received), base token USD = Sell.AmountInUSD (what was paid)
   // For SELL: tracked token USD = Sell.AmountInUSD (what was sold), base token USD = Buy.AmountInUSD (what was received)
   // IMPORTANT: For volume tracking, we want:
   //   - BUY volume = baseTokenUsdValue (what was paid)
   //   - SELL volume = baseTokenUsdValue (what was received)
-  const trackedTokenUsdValue = side === 'BUY'
-    ? (trade.Trade.Buy.AmountInUSD || 0)
-    : (trade.Trade.Sell.AmountInUSD || 0);
-  const baseTokenUsdValue = side === 'BUY'
-    ? (trade.Trade.Sell.AmountInUSD || 0) // What was paid for BUY
-    : (trade.Trade.Buy.AmountInUSD || 0); // What was received for SELL
+  // Ensure AmountInUSD is converted to a number (it might come as string from API)
+  const buyAmountUsd = typeof trade.Trade.Buy.AmountInUSD === 'number'
+    ? trade.Trade.Buy.AmountInUSD
+    : parseFloat(String(trade.Trade.Buy.AmountInUSD || 0)) || 0;
+  const sellAmountUsd = typeof trade.Trade.Sell.AmountInUSD === 'number'
+    ? trade.Trade.Sell.AmountInUSD
+    : parseFloat(String(trade.Trade.Sell.AmountInUSD || 0)) || 0;
+
+  const trackedTokenUsdValue = side === 'BUY' ? buyAmountUsd : sellAmountUsd;
+  const baseTokenUsdValue = side === 'BUY' ? sellAmountUsd : buyAmountUsd; // What was paid for BUY / received for SELL
 
   // Calculate price per token: Price = baseTokenUSD / trackedTokenAmount
   // For BUY: amountOut = tracked token, so price = baseTokenUSD / amountOut
@@ -385,7 +715,18 @@ async function transformBitqueryTrade(
     trackedTokenUsdValue,
     baseTokenUsdValue,
     priceUsd,
-  } as SwapDetails & { trackedTokenUsdValue: number; baseTokenUsdValue: number; priceUsd: number };
+    legIndex: effectiveLegIndex,
+    protocolName: options?.protocolName || trade.Trade.Dex.ProtocolName || undefined,
+    buyerAddress: trade.Trade.Buy.Buyer?.toLowerCase(), // V2 has separate Buyer
+    sellerAddress: trade.Trade.Sell.Seller?.toLowerCase(), // V2 has separate Seller
+    trackedTokenAddress: trackedToken,
+    trackedTokenAmount: tokenAmount,
+    trackedTokenDecimals,
+    baseTokenDecimals,
+    buyAmountUsd: trade.Trade.Buy.AmountInUSD,
+    sellAmountUsd: trade.Trade.Sell.AmountInUSD,
+    isProtocolFee: options?.isProtocolFee ?? false,
+  };
 }
 
 /**
@@ -482,6 +823,7 @@ export async function getWalletSwaps(
 
     // Transform trades to SwapDetails
     const swapDetails: SwapDetails[] = [];
+    let legIndex = 0;
     for (const trade of trades) {
       // Determine which wallet is involved (Buyer or Seller)
       const buyToken = trade.Trade.Buy.Currency.SmartContract.toLowerCase();
@@ -489,17 +831,19 @@ export async function getWalletSwaps(
       const isTrackedTokenBuy = trackedTokenAddresses.includes(buyToken);
       const isTrackedTokenSell = trackedTokenAddresses.includes(sellToken);
 
-      let tradeWallet: string;
-      if (isTrackedTokenBuy && trade.Trade.Buy.Buyer) {
-        tradeWallet = trade.Trade.Buy.Buyer.toLowerCase();
-      } else if (isTrackedTokenSell && trade.Trade.Sell.Seller) {
-        tradeWallet = trade.Trade.Sell.Seller.toLowerCase();
+      // V2 API: Use Buyer or Seller based on which side has the tracked token
+      let tradeWallet: string = '';
+      if (isTrackedTokenBuy) {
+        tradeWallet = trade.Trade.Buy.Buyer?.toLowerCase() || trade.Transaction.From?.toLowerCase() || '';
+      } else if (isTrackedTokenSell) {
+        tradeWallet = trade.Trade.Sell.Seller?.toLowerCase() || trade.Transaction.From?.toLowerCase() || '';
       } else {
-        // Fallback to transaction sender
-        tradeWallet = trade.Transaction.From.toLowerCase();
+        tradeWallet = trade.Transaction.From?.toLowerCase() || '';
       }
 
-      const swapDetail = await transformBitqueryTrade(trade, tradeWallet, trackedTokenAddresses);
+      const swapDetail = await transformBitqueryTrade(trade, tradeWallet, trackedTokenAddresses, legIndex);
+      legIndex++;
+
       if (swapDetail) {
         swapDetails.push(swapDetail);
       }
@@ -552,6 +896,20 @@ async function executeBitqueryQueryWithRetry(
   throw lastError || new Error('Unknown error during retry');
 }
 
+function buildTradeSignature(trade: BitqueryDEXTrade): string {
+  const buy = trade.Trade.Buy;
+  const sell = trade.Trade.Sell;
+  return [
+    trade.Transaction.Hash?.toLowerCase() || '',
+    buy.Currency.SmartContract?.toLowerCase() || '',
+    sell.Currency.SmartContract?.toLowerCase() || '',
+    buy.Amount || '',
+    sell.Amount || '',
+    buy.Buyer?.toLowerCase() || '',
+    sell.Seller?.toLowerCase() || ''
+  ].join('|');
+}
+
 /**
  * Get token's first transaction block and timestamp (inception)
  * Queries Bitquery for the earliest transaction involving this token
@@ -563,12 +921,15 @@ async function getTokenInception(tokenAddress: string): Promise<{ block: number;
   }
 
   const tokenAddr = tokenAddress.toLowerCase();
+  const originalEndpoint = activeBitqueryEndpoint;
+  activeBitqueryEndpoint = STREAMING_BITQUERY_ENDPOINT;
 
   try {
     // Query for the earliest DEX trade involving this token
+    // Use combined dataset to find when token first traded
     const queryString = `
       query TokenInception($token: String!) {
-        EVM(network: base) {
+        EVM(dataset: combined, network: base) {
           DEXTrades(
             where: {
               any: [
@@ -630,20 +991,334 @@ async function getTokenInception(tokenAddress: string): Promise<{ block: number;
       return { block: inceptionBlock, timestamp: inceptionTimestamp };
     }
 
-    logWarn(`[Bitquery] Could not find inception block for token ${tokenAddr}, querying from genesis`);
+    logWarn(`[Bitquery] Could not find inception block for token ${tokenAddr}`);
     return null;
   } catch (error: any) {
     logWarn(`[Bitquery] Error finding inception block for ${tokenAddr}: ${error.message}`);
     return null;
+  } finally {
+    activeBitqueryEndpoint = originalEndpoint;
   }
 }
 
 /**
- * Get token swaps from Bitquery (all swaps for a specific token)
- * Query ALL historical swaps by default (no date/block limits unless specified)
- * Uses Bitquery v2 schema with `any` operator and Buyer/Seller fields
- * Supports pagination (Bitquery has 10k limit per query)
- * Uses block numbers ONLY for pagination (no date-based pagination)
+ * Fetch grouped token swaps from Bitquery (all historical swaps for a token)
+ * Returns grouped trades keyed by transaction hash along with tracked token list
+ */
+export async function getTokenSwapGroups(
+  tokenAddress: string,
+  fromDate?: Date | null,
+  toDate?: Date | null,
+  onProgress?: (page: number, swapsFound: number) => void
+): Promise<TokenSwapFetchResult> {
+  logInfo(`[Bitquery] getTokenSwapGroups called for token: ${tokenAddress}`);
+
+  if (!BITQUERY_API_KEY) {
+    logError('[Bitquery] BITQUERY_API_KEY not configured');
+    throw new Error('BITQUERY_API_KEY not configured');
+  }
+
+  const tokenAddr = tokenAddress.toLowerCase();
+
+  // Find when the token first started trading (inception date)
+  // This is much better than guessing a date range
+  logInfo(`[Bitquery] Finding token inception (first trade date)...`);
+  const inception = await getTokenInception(tokenAddr);
+
+  let currentStartDate: Date;
+  if (fromDate) {
+    currentStartDate = new Date(fromDate);
+    logInfo(`[Bitquery] Using provided fromDate: ${currentStartDate.toISOString()}`);
+  } else if (inception) {
+    currentStartDate = inception.timestamp;
+    logInfo(`[Bitquery] ✓ Found token inception: Block ${inception.block} at ${inception.timestamp.toISOString()}`);
+  } else {
+    // Fallback: use 30 days ago if we can't find inception
+    currentStartDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    logWarn(`[Bitquery] ⚠ Could not find token inception, using fallback date: ${currentStartDate.toISOString()}`);
+  }
+
+  const endDateObj = toDate ? new Date(toDate) : new Date();
+
+  logInfo(`[Bitquery] Date range: ${currentStartDate.toISOString()} to ${endDateObj.toISOString()} (${Math.round((endDateObj.getTime() - currentStartDate.getTime()) / (1000 * 60 * 60 * 24))} days)`);
+
+  // Use streaming endpoint for Base chain (V2 API)
+  const originalEndpoint = activeBitqueryEndpoint;
+  activeBitqueryEndpoint = STREAMING_BITQUERY_ENDPOINT;
+
+  logInfo(`[Bitquery] Querying ALL swap legs for token ${tokenAddr} from ${currentStartDate.toISOString()} to ${endDateObj.toISOString()}`);
+  logInfo(`[Bitquery] Using endpoint: ${activeBitqueryEndpoint}`);
+  logInfo(`[Bitquery] API Key present: ${BITQUERY_API_KEY ? 'yes' : 'no'}`);
+  logInfo(`[Bitquery] Token address (lowercase): ${tokenAddr}`);
+
+  // First, test if ANY trades exist for this token (no date filter)
+  logInfo(`[Bitquery] Testing if token has ANY trades (no date filter)...`);
+  try {
+    const testQuery = `
+query TestTokenExists($tokenAddress: String!) {
+  EVM(dataset: combined, network: base) {
+    DEXTrades(
+      where: {
+        any: [
+          {Trade: {Buy: {Currency: {SmartContract: {is: $tokenAddress}}}}}
+          {Trade: {Sell: {Currency: {SmartContract: {is: $tokenAddress}}}}}
+        ]
+      }
+      limit: {count: 1}
+      orderBy: {descending: Block_Time}
+    ) {
+      Block {
+        Time
+        Number
+      }
+      Transaction {
+        Hash
+      }
+    }
+  }
+}
+    `;
+    const testData = await executeBitqueryQueryWithRetry(testQuery, { tokenAddress: tokenAddr });
+    const testTrades = testData.EVM?.DEXTrades || [];
+    if (testTrades.length > 0) {
+      logInfo(`[Bitquery] ✓ Token HAS trades! Most recent: Block ${testTrades[0].Block.Number} at ${testTrades[0].Block.Time}`);
+    } else {
+      logWarn(`[Bitquery] ⚠ Token has NO trades in combined dataset. Response structure: ${JSON.stringify(Object.keys(testData))}`);
+      if (testData.EVM) {
+        logWarn(`[Bitquery] EVM keys: ${Object.keys(testData.EVM).join(', ')}`);
+      }
+    }
+  } catch (testError: any) {
+    logWarn(`[Bitquery] Test query failed: ${testError.message}`);
+  }
+
+  const trackedTokens = await getTrackedTokens();
+  const trackedTokenAddresses = trackedTokens.map(t => t.token_address.toLowerCase());
+
+  logInfo(`[Bitquery] Querying swaps for token: ${tokenAddr} (in tracked tokens: ${trackedTokenAddresses.includes(tokenAddr)})`);
+
+  if (trackedTokenAddresses.length === 0) {
+    logWarn('[Bitquery] No tracked tokens found');
+    activeBitqueryEndpoint = originalEndpoint;
+    return { groups: [], trackedTokenAddresses: [] };
+  }
+
+  interface GroupEntry {
+    trades: BitqueryDEXTrade[];
+    seen: Set<string>;
+    blockNumber: number;
+    blockTime: string;
+    transactionFrom: string;
+  }
+
+  const groupMap = new Map<string, GroupEntry>();
+  let page = 1;
+  let consecutiveEmptyPages = 0;
+  const pageSizeDays = 7; // Query 7 days at a time for pagination
+
+  try {
+    while (currentStartDate < endDateObj) {
+      // Calculate end date for this page (7 days forward, or until endDate)
+      const pageEndDate = new Date(currentStartDate);
+      pageEndDate.setDate(pageEndDate.getDate() + pageSizeDays);
+      const actualEndDate = pageEndDate > endDateObj ? endDateObj : pageEndDate;
+
+      // Use working V2 structure from Base Historical Queries docs
+      // Try dataset: combined first (works better with streaming endpoint)
+      // If combined doesn't have enough history, we'll need to use classic endpoint with archive
+      const queryString = `
+query TokenSwaps($tokenAddress: String!, $startDate: DateTime!, $endDate: DateTime!) {
+  EVM(dataset: combined, network: base) {
+    DEXTrades(
+      where: {
+        any: [
+          {Trade: {Buy: {Currency: {SmartContract: {is: $tokenAddress}}}}}
+          {Trade: {Sell: {Currency: {SmartContract: {is: $tokenAddress}}}}}
+        ]
+        Block: {
+          Time: {
+            since: $startDate
+            till: $endDate
+          }
+        }
+      }
+      orderBy: {ascending: Block_Time}
+      limit: {count: 10000}
+    ) {
+      Block {
+        Time
+        Number
+        Date
+      }
+      Transaction {
+        Hash
+        From
+        To
+        Gas
+      }
+      Trade {
+        Buy {
+          Amount
+          AmountInUSD
+          PriceInUSD
+          Currency {
+            Name
+            Symbol
+            SmartContract
+            Decimals
+          }
+          Buyer
+        }
+        Sell {
+          Amount
+          AmountInUSD
+          PriceInUSD
+          Currency {
+            Name
+            Symbol
+            SmartContract
+            Decimals
+          }
+          Seller
+        }
+        Dex {
+          ProtocolName
+          ProtocolFamily
+          SmartContract
+        }
+      }
+    }
+  }
+}
+      `;
+
+      const variables: Record<string, any> = {
+        tokenAddress: tokenAddr,
+        startDate: currentStartDate.toISOString(),
+        endDate: actualEndDate.toISOString()
+      };
+
+      logInfo(`[Bitquery] Page ${page}: Querying from ${currentStartDate.toISOString()} to ${actualEndDate.toISOString()} (transactions so far: ${groupMap.size})`);
+      logInfo(`[Bitquery] Page ${page}: Query variables: tokenAddress=${tokenAddr.substring(0, 10)}..., startDate=${currentStartDate.toISOString()}, endDate=${actualEndDate.toISOString()}`);
+
+      const data = await executeBitqueryQueryWithRetry(queryString, variables);
+      logInfo(`[Bitquery] Page ${page}: Raw API response - EVM exists: ${!!data.EVM}, DEXTrades exists: ${!!data.EVM?.DEXTrades}, DEXTrades type: ${Array.isArray(data.EVM?.DEXTrades) ? 'array' : typeof data.EVM?.DEXTrades}, length: ${data.EVM?.DEXTrades?.length || 0}`);
+
+      const trades: BitqueryDEXTrade[] = data.EVM?.DEXTrades || [];
+      logInfo(`[Bitquery] Page ${page}: Found ${trades.length} trades (transactions so far: ${groupMap.size})`);
+
+      if (trades.length > 0) {
+        logInfo(`[Bitquery] Page ${page}: First trade example - Block: ${trades[0].Block.Number}, Time: ${trades[0].Block.Time}, TxHash: ${trades[0].Transaction.Hash.substring(0, 10)}...`);
+      } else if (page === 1) {
+        // Log full response structure for first page to debug
+        logWarn(`[Bitquery] Page ${page}: No trades found. Full response keys: ${Object.keys(data).join(', ')}`);
+        if (data.EVM) {
+          logWarn(`[Bitquery] Page ${page}: EVM keys: ${Object.keys(data.EVM).join(', ')}`);
+        }
+      }
+
+      if (trades.length === 0) {
+        consecutiveEmptyPages++;
+        if (consecutiveEmptyPages >= 2) {
+          logInfo('[Bitquery] Received 2 consecutive empty pages, pagination complete');
+          break;
+        }
+        // Move to next time window
+        currentStartDate = new Date(actualEndDate);
+        page++;
+        await new Promise(resolve => setTimeout(resolve, 500));
+        continue;
+      }
+
+      consecutiveEmptyPages = 0;
+
+      let maxBlockInPage = 0;
+      let lastTradeTime: Date | null = null;
+
+      for (const trade of trades) {
+        const txHashLower = trade.Transaction.Hash.toLowerCase();
+        const signature = buildTradeSignature(trade);
+        const blockNum = typeof trade.Block.Number === 'string'
+          ? parseInt(trade.Block.Number, 10)
+          : trade.Block.Number;
+        const tradeTime = new Date(trade.Block.Time);
+
+        let entry = groupMap.get(txHashLower);
+        if (!entry) {
+          entry = {
+            trades: [],
+            seen: new Set<string>(),
+            blockNumber: blockNum,
+            blockTime: trade.Block.Time,
+            transactionFrom: trade.Transaction.From?.toLowerCase() || ''
+          };
+          groupMap.set(txHashLower, entry);
+        }
+
+        if (!entry.seen.has(signature)) {
+          entry.trades.push(trade);
+          entry.seen.add(signature);
+        }
+
+        if (blockNum > maxBlockInPage) {
+          maxBlockInPage = blockNum;
+        }
+        if (tradeTime > (lastTradeTime || new Date(0))) {
+          lastTradeTime = tradeTime;
+        }
+
+        if (blockNum > entry.blockNumber) {
+          entry.blockNumber = blockNum;
+          entry.blockTime = trade.Block.Time;
+        }
+        if (!entry.transactionFrom && trade.Transaction.From) {
+          entry.transactionFrom = trade.Transaction.From.toLowerCase();
+        }
+      }
+
+      logInfo(`[Bitquery] Page ${page}: Processed ${trades.length} trades, max block: ${maxBlockInPage}, total transactions: ${groupMap.size}`);
+
+      if (onProgress) {
+        onProgress(page, groupMap.size);
+      }
+
+      // Move to next time window (start from last trade time + 1 second to avoid duplicates)
+      if (lastTradeTime) {
+        currentStartDate = new Date(lastTradeTime.getTime() + 1000);
+      } else {
+        currentStartDate = new Date(actualEndDate);
+      }
+
+      page++;
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  } finally {
+    // Restore original endpoint
+    activeBitqueryEndpoint = originalEndpoint;
+  }
+
+  const groups: BitqueryTradeGroup[] = Array.from(groupMap.entries()).map(([txHash, entry]) => ({
+    txHash,
+    trades: entry.trades,
+    blockNumber: entry.blockNumber,
+    blockTime: entry.blockTime,
+    transactionFrom: entry.transactionFrom
+  }));
+
+  groups.sort((a, b) => {
+    if (a.blockNumber !== b.blockNumber) {
+      return a.blockNumber - b.blockNumber;
+    }
+    return new Date(a.blockTime).getTime() - new Date(b.blockTime).getTime();
+  });
+
+  logInfo(`[Bitquery] Found ${groups.length} total transactions for token ${tokenAddr}`);
+
+  return { groups, trackedTokenAddresses };
+}
+
+/**
+ * Backwards-compatible helper: flatten grouped trades into SwapDetails array
  */
 export async function getTokenSwaps(
   tokenAddress: string,
@@ -651,233 +1326,75 @@ export async function getTokenSwaps(
   toDate?: Date | null,
   onProgress?: (page: number, swapsFound: number) => void
 ): Promise<SwapDetails[]> {
-  if (!BITQUERY_API_KEY) {
-    throw new Error('BITQUERY_API_KEY not configured');
-  }
+  const { groups, trackedTokenAddresses } = await getTokenSwapGroups(tokenAddress, fromDate, toDate, onProgress);
 
-  const tokenAddr = tokenAddress.toLowerCase();
-
-  // Start from block 0 (Base genesis) unless fromBlock is provided
-  // Note: fromDate/toDate parameters are kept for API compatibility but not used for pagination
-  let minBlock = 0; // Start from Base genesis block
-
-  logInfo(`[Bitquery] Querying ALL swaps for token ${tokenAddr} starting from block ${minBlock}`);
-
-  // Get tracked tokens to filter
-  const trackedTokens = await getTrackedTokens();
-  const trackedTokenAddresses = trackedTokens.map(t => t.token_address.toLowerCase());
-
-  // Log the token we're querying for debugging
-  logInfo(`[Bitquery] Querying swaps for token: ${tokenAddr} (in tracked tokens: ${trackedTokenAddresses.includes(tokenAddr)})`);
-
-  if (trackedTokenAddresses.length === 0) {
-    logWarn('[Bitquery] No tracked tokens found');
+  if (groups.length === 0) {
+    logWarn(`[Bitquery] No swaps found for token ${tokenAddress.toLowerCase()}`);
     return [];
   }
 
-  const allTradesMap = new Map<string, BitqueryDEXTrade>();
-  let page = 1;
-  let consecutiveEmptyPages = 0; // Track consecutive empty pages to detect end
-
-  while (true) {
-    // Build where clause using `any` operator for OR condition
-    // Structure matches Bitquery v2 docs exactly
-    const whereConditions: string[] = [];
-
-    // Use ONLY block number for pagination (EVM uses 'ge' not 'gte')
-    whereConditions.push(`Block: { Number: { ge: $minBlock } }`);
-
-    // Use `any` operator to match token in either Buy OR Sell side (as per Bitquery v2 docs)
-    whereConditions.push(`any: [
-      {Trade: {Buy: {Currency: {SmartContract: {is: $token}}}}},
-      {Trade: {Sell: {Currency: {SmartContract: {is: $token}}}}}
-    ]`);
-
-    // Build variable declarations - only need token and minBlock (String for EVM)
-    const variableDeclarations: string[] = ['$token: String!', '$minBlock: String!'];
-
-    const queryString = `
-      query TokenSwaps(${variableDeclarations.join(', ')}) {
-        EVM(network: base, dataset: combined) {
-          DEXTrades(
-            where: {
-              ${whereConditions.join(',\n              ')}
-            }
-            limit: { count: 10000 }
-            orderBy: { ascending: Block_Number }
-          ) {
-            Block {
-              Time
-              Number
-            }
-            Transaction {
-              Hash
-              From
-            }
-            Trade {
-              Dex {
-                ProtocolName
-              }
-              Buy {
-                Amount
-                AmountInUSD
-                Buyer
-                Currency {
-                  Symbol
-                  SmartContract
-                }
-              }
-              Sell {
-                Amount
-                AmountInUSD
-                Seller
-                Currency {
-                  Symbol
-                  SmartContract
-                }
-              }
-            }
-          }
-        }
-      }
-    `;
-
-    const variables: Record<string, any> = {
-      token: tokenAddr,
-      minBlock: String(minBlock) // Convert to string for EVM GraphQL API
-    };
-
-    logInfo(`[Bitquery] Page ${page}: Querying from block ${minBlock} (total unique so far: ${allTradesMap.size})`);
-
-    const data = await executeBitqueryQueryWithRetry(queryString, variables);
-    const trades: BitqueryDEXTrade[] = data.EVM?.DEXTrades || [];
-
-    logInfo(`[Bitquery] Page ${page}: Found ${trades.length} trades (total unique so far: ${allTradesMap.size})`);
-
-    if (trades.length === 0) {
-      consecutiveEmptyPages++;
-      if (consecutiveEmptyPages >= 2) {
-        logInfo(`[Bitquery] Received 2 consecutive empty pages, pagination complete`);
-        break;
-      }
-      // Continue to next page in case of temporary empty result
-      // Increment block number and try again
-      // CRITICAL: Ensure minBlock stays as a number
-      minBlock = Number(minBlock) + 1;
-      page++;
-      await new Promise(resolve => setTimeout(resolve, 500));
-      continue;
-    }
-
-    consecutiveEmptyPages = 0; // Reset counter when we get results
-
-    // Track highest block number seen in this page for next page cursor
-    let maxBlockInPage = 0;
-    for (const trade of trades) {
-      allTradesMap.set(trade.Transaction.Hash.toLowerCase(), trade);
-
-      // Track highest block number in this page
-      // Ensure Block.Number is treated as a number, not string
-      const blockNum = typeof trade.Block.Number === 'string' ? parseInt(trade.Block.Number, 10) : trade.Block.Number;
-      if (blockNum > maxBlockInPage) {
-        maxBlockInPage = blockNum;
-      }
-    }
-
-    logInfo(`[Bitquery] Page ${page}: Processed ${trades.length} trades, max block in page: ${maxBlockInPage}, total unique: ${allTradesMap.size}`);
-
-    if (onProgress) {
-      onProgress(page, allTradesMap.size);
-    }
-
-    // For next page, start from block after the highest block we saw
-    // This ensures we don't miss trades and don't get duplicates
-    // CRITICAL: Ensure minBlock stays as a number, only convert to string when passing to GraphQL
-    minBlock = Number(maxBlockInPage) + 1;
-    page++;
-
-    // Small delay between pages to avoid rate limits
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-
-  const allTrades = Array.from(allTradesMap.values());
-
-  // Sort by block number (ascending) and timestamp to ensure chronological order for FIFO
-  allTrades.sort((a, b) => {
-    if (a.Block.Number !== b.Block.Number) {
-      return a.Block.Number - b.Block.Number;
-    }
-    // If same block, sort by timestamp
-    return new Date(a.Block.Time).getTime() - new Date(b.Block.Time).getTime();
-  });
-
-  logInfo(`[Bitquery] Found ${allTrades.length} total unique swaps for token ${tokenAddr}`);
-
-  if (allTrades.length === 0) {
-    logWarn(`[Bitquery] No swaps found for token ${tokenAddr}`);
-    return [];
-  }
-
-  // Transform trades to SwapDetails
   const swapDetails: SwapDetails[] = [];
   let buyCount = 0;
   let sellCount = 0;
 
-  for (const trade of allTrades) {
-    // Determine which side the tracked token is on
-    const buyToken = trade.Trade.Buy.Currency.SmartContract.toLowerCase();
-    const sellToken = trade.Trade.Sell.Currency.SmartContract.toLowerCase();
-    const isTrackedTokenBuy = trackedTokenAddresses.includes(buyToken);
-    const isTrackedTokenSell = trackedTokenAddresses.includes(sellToken);
+  for (const group of groups) {
+    for (let legIndex = 0; legIndex < group.trades.length; legIndex++) {
+      const trade = group.trades[legIndex];
+      const buyToken = trade.Trade.Buy.Currency.SmartContract.toLowerCase();
+      const sellToken = trade.Trade.Sell.Currency.SmartContract.toLowerCase();
+      const isTrackedTokenBuy = trackedTokenAddresses.includes(buyToken);
+      const isTrackedTokenSell = trackedTokenAddresses.includes(sellToken);
 
-    // Debug: log token detection for first 50 swaps to see what we're getting
-    if (swapDetails.length < 50) {
-      logInfo(`[Transform Debug] Tx ${trade.Transaction.Hash.substring(0, 10)}... | buyToken=${buyToken.substring(0, 10)} | sellToken=${sellToken.substring(0, 10)} | isBuy=${isTrackedTokenBuy} | isSell=${isTrackedTokenSell} | trackedToken=${tokenAddr.substring(0, 10)}`);
-    }
-
-    // Determine wallet address based on tracked token side
-    // CRITICAL: Match wallet to the side where tracked token appears
-    // If tracked token is in Buy.Currency → Buyer wallet is buying it → use Buyer
-    // If tracked token is in Sell.Currency → Seller wallet is selling it → use Seller
-    let swapWallet: string;
-    if (isTrackedTokenBuy && trade.Trade.Buy.Buyer) {
-      // Tracked token is in Buy side → Buyer wallet receives it → this is a BUY for Buyer
-      swapWallet = trade.Trade.Buy.Buyer.toLowerCase();
-    } else if (isTrackedTokenSell && trade.Trade.Sell.Seller) {
-      // Tracked token is in Sell side → Seller wallet sends it → this is a SELL for Seller
-      swapWallet = trade.Trade.Sell.Seller.toLowerCase();
-    } else {
-      // Fallback to transaction sender (shouldn't happen if data is correct)
-      swapWallet = trade.Transaction.From.toLowerCase();
-      if (swapDetails.length < 10) {
-        logWarn(`[Warning] Using Transaction.From as wallet fallback: ${swapWallet.substring(0, 10)}...`);
+      if (swapDetails.length < 50) {
+        logInfo(`[Transform Debug] Tx ${trade.Transaction.Hash.substring(0, 10)}... | leg=${legIndex} | buyToken=${buyToken.substring(0, 10)} | sellToken=${sellToken.substring(0, 10)} | isBuy=${isTrackedTokenBuy} | isSell=${isTrackedTokenSell} | trackedToken=${tokenAddress.toLowerCase().substring(0, 10)}`);
       }
-    }
 
-    // FILTER OUT PROTOCOL FEE TRANSFERS
-    // Check if this swap is a protocol fee transfer (like Clanker locker fees)
-    // These are internal protocol mechanics, not actual user swaps
-    if (isProtocolFeeTransfer(trade, swapWallet, trackedTokenAddresses)) {
-      if (swapDetails.length < 10) {
-        logInfo(`[Filter] Skipping protocol fee transfer: ${trade.Transaction.Hash.substring(0, 10)}... | wallet=${swapWallet.substring(0, 10)}... | protocol=${trade.Trade.Dex.ProtocolName}`);
+      // V2 API: Use Buyer or Seller based on which side has the tracked token, fallback to Transaction.From
+      let swapWallet: string = '';
+      if (isTrackedTokenBuy) {
+        swapWallet = trade.Trade.Buy.Buyer?.toLowerCase() || trade.Transaction.From?.toLowerCase() || '';
+      } else if (isTrackedTokenSell) {
+        swapWallet = trade.Trade.Sell.Seller?.toLowerCase() || trade.Transaction.From?.toLowerCase() || '';
+      } else {
+        swapWallet = trade.Transaction.From?.toLowerCase() || '';
       }
-      continue; // Skip this trade
-    }
 
-    const swapDetail = await transformBitqueryTrade(trade, swapWallet, trackedTokenAddresses);
-    if (swapDetail) {
-      swapDetails.push(swapDetail);
-      if (swapDetail.side === 'BUY') buyCount++;
-      else sellCount++;
-
-      // Debug: log first 50 swaps to verify BUY/SELL detection
-      if (swapDetails.length <= 50) {
-        logInfo(`[Bitquery Transform] ${swapDetail.side} swap: ${swapDetail.txHash.substring(0, 10)}..., wallet=${swapWallet.substring(0, 10)}..., trackedToken=${tokenAddr.substring(0, 10)}..., side=${swapDetail.side}`);
+      if (!swapWallet && swapDetails.length < 10) {
+        logWarn(`[Warning] No wallet address found for trade: ${trade.Transaction.Hash.substring(0, 10)}...`);
       }
-    } else {
-      // Log why swaps are being filtered out
-      if (swapDetails.length < 20) {
-        logWarn(`[Transform] Filtered out swap ${trade.Transaction.Hash.substring(0, 10)}... | buyToken=${buyToken.substring(0, 10)}... | sellToken=${sellToken.substring(0, 10)}... | trackedToken=${tokenAddr.substring(0, 10)}...`);
+
+      const isProtocolFee = isProtocolFeeTransfer(trade, swapWallet, trackedTokenAddresses);
+      if (isProtocolFee) {
+        if (swapDetails.length < 10) {
+          logInfo(`[Filter] Skipping protocol fee transfer: ${trade.Transaction.Hash.substring(0, 10)}... | wallet=${swapWallet.substring(0, 10)}... | protocol=${trade.Trade.Dex.ProtocolName}`);
+        }
+        continue;
+      }
+
+      const swapDetail = await transformBitqueryTrade(
+        trade,
+        swapWallet,
+        trackedTokenAddresses,
+        legIndex,
+        {
+          protocolName: trade.Trade.Dex.ProtocolName,
+          isProtocolFee
+        }
+      );
+
+      if (swapDetail) {
+        swapDetails.push(swapDetail);
+        if (swapDetail.side === 'BUY') {
+          buyCount++;
+        } else {
+          sellCount++;
+        }
+
+        if (swapDetails.length <= 50) {
+          logInfo(`[Bitquery Transform] ${swapDetail.side} swap: ${swapDetail.txHash.substring(0, 10)}..., leg=${legIndex}, wallet=${swapWallet.substring(0, 10)}..., side=${swapDetail.side}`);
+        }
+      } else if (swapDetails.length < 20) {
+        logWarn(`[Transform] Filtered out swap ${trade.Transaction.Hash.substring(0, 10)}... | buyToken=${buyToken.substring(0, 10)}... | sellToken=${sellToken.substring(0, 10)}... | trackedToken=${tokenAddress.toLowerCase().substring(0, 10)}...`);
       }
     }
   }

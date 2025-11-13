@@ -35,6 +35,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if admin mode is enabled
+    if (process.env.ENABLE_ADMIN_MODE !== 'true') {
+      return NextResponse.json(
+        { error: 'Admin mode is not enabled' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { token_address, symbol, decimals } = body;
 

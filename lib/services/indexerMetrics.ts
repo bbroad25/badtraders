@@ -53,8 +53,7 @@ let status: IndexerStatus = {
   errors: [],
   startTime: null,
   endTime: null,
-  lastUpdate: null,
-  currentTask: null
+  lastUpdate: null
 };
 
 /**

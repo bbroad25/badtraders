@@ -8,6 +8,14 @@ export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
+    // Check if admin mode is enabled
+    if (process.env.ENABLE_ADMIN_MODE !== 'true') {
+      return NextResponse.json(
+        { error: 'Admin mode is not enabled' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get('limit');
     const since = searchParams.get('since');

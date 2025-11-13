@@ -12,6 +12,14 @@ const SYNC_PASSWORD = process.env.SYNC_PASSWORD || '';
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if admin mode is enabled
+    if (process.env.ENABLE_ADMIN_MODE !== 'true') {
+      return NextResponse.json(
+        { error: 'Admin mode is not enabled' },
+        { status: 403 }
+      );
+    }
+
     // Check for sync password (if set)
     const body = await request.json().catch(() => ({}));
     const authHeader = request.headers.get('authorization');
@@ -36,6 +44,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const enableBitquerySync = (process.env.ENABLE_BITQUERY_SYNC || '').toLowerCase() === 'true';
+    if (!enableBitquerySync) {
+      logWarn('Bitquery sync attempted while ENABLE_BITQUERY_SYNC is disabled');
+      return NextResponse.json(
+        { error: 'Bitquery sync disabled', flag: 'ENABLE_BITQUERY_SYNC' },
+        { status: 403 }
+      );
+    }
+
     // syncType: 'incremental' (update existing) or 'full' (clear all first)
     // tokenAddress: optional - if provided, sync only wallets that traded this token
     const syncType = body.syncType || 'incremental';
@@ -47,6 +64,8 @@ export async function POST(request: NextRequest) {
       logInfo(`Starting sync - Sync Type: ${syncType}...`);
     }
     resetStatus();
+
+    let indexerRunId: number | null = null;
 
     // Full sync: Clear all indexer data
     if (syncType === 'full') {
@@ -77,6 +96,21 @@ export async function POST(request: NextRequest) {
         throw new Error('No tracked tokens found. Please add a token first.');
       }
 
+      try {
+        const initiator = providedSecret ? 'cron' : 'manual';
+        const runInsert = await query(
+          `INSERT INTO indexer_runs (
+            initiator, sync_type, tokens_scanned, status, started_at
+          ) VALUES ($1, $2, $3, 'running', NOW())
+          RETURNING id`,
+          [initiator, syncType, tokensToIndex.length]
+        );
+        indexerRunId = runInsert.rows[0].id as number;
+        logInfo(`[IndexerRun] Started run ${indexerRunId} (initiator=${initiator}, tokens=${tokensToIndex.length})`);
+      } catch (runError: any) {
+        logWarn(`[IndexerRun] Failed to record run start: ${runError?.message || runError}`);
+      }
+
       // Initialize workers
       setActiveWorkers(['swap-processor']);
 
@@ -99,10 +133,13 @@ export async function POST(request: NextRequest) {
       });
 
       logInfo('Processing swaps from Bitquery (ONLY source)...');
+      logInfo(`[SYNC ROUTE] About to call processSwapsFromBitquery with tokenAddress=${tokenAddress || 'ALL'}`);
 
-      let swapResult: { swapsProcessed: number; walletsFound: Set<string> } | null = null;
+      type SwapProcessResult = Awaited<ReturnType<typeof processSwapsFromBitquery>>;
+      let swapResult: SwapProcessResult | null = null;
 
       try {
+        logInfo(`[SYNC ROUTE] Entering try block for processSwapsFromBitquery...`);
         // Track total swaps fetched for progress calculation
         let totalSwapsFetched = 0;
 
@@ -137,6 +174,8 @@ export async function POST(request: NextRequest) {
           }
         );
 
+        logInfo(`[SYNC ROUTE] processSwapsFromBitquery completed: swapsProcessed=${swapResult.swapsProcessed}, walletsFound=${swapResult.walletsFound.size}, pages=${swapResult.bitqueryPages}, calls=${swapResult.bitqueryCalls}`);
+
         totalSwapsProcessed = swapResult.swapsProcessed;
         swapResult.walletsFound.forEach(w => walletsFound.add(w));
 
@@ -163,11 +202,33 @@ export async function POST(request: NextRequest) {
 
         logSuccess(`Processed ${totalSwapsProcessed} swaps from Bitquery, found ${swapResult.walletsFound.size} wallets`);
         updateOverallProgress(SWAP_WEIGHT * 100, `Swaps complete: ${totalSwapsProcessed} processed`);
+
+        if (indexerRunId !== null) {
+          try {
+            await query(
+              `UPDATE indexer_runs
+               SET finished_at = NOW(),
+                   status = 'succeeded',
+                   tokens_scanned = $1,
+                   bitquery_pages = $2,
+                   bitquery_calls = $3
+               WHERE id = $4`,
+              [
+                swapResult.tokensProcessed,
+                swapResult.bitqueryPages,
+                swapResult.bitqueryCalls,
+                indexerRunId
+              ]
+            );
+          } catch (runUpdateError: any) {
+            logWarn(`[IndexerRun] Failed to update run ${indexerRunId}: ${runUpdateError?.message || runUpdateError}`);
+          }
+        }
       } catch (swapError: any) {
         const swapErrorMsg = swapError?.message || swapError?.toString() || JSON.stringify(swapError);
-        logError(`[CRITICAL] Swap processing failed: ${swapErrorMsg}`);
+        logError(`[SYNC ROUTE] [CRITICAL] Swap processing failed: ${swapErrorMsg}`);
         if (swapError?.stack) {
-          logError(`[CRITICAL] Stack: ${swapError.stack.substring(0, 1000)}`);
+          logError(`[SYNC ROUTE] [CRITICAL] Full Stack: ${swapError.stack}`);
         }
         updateWorkerStatusWithTiming('swap-processor', {
           walletAddress: 'swap-processor',
@@ -175,6 +236,20 @@ export async function POST(request: NextRequest) {
           currentTask: `FAILED: ${swapErrorMsg.substring(0, 50)}...`,
           swapsProcessed: 0
         });
+        if (indexerRunId !== null) {
+          try {
+            await query(
+              `UPDATE indexer_runs
+               SET finished_at = NOW(),
+                   status = 'failed',
+                   error_message = $1
+               WHERE id = $2`,
+              [swapErrorMsg, indexerRunId]
+            );
+          } catch (runFailError: any) {
+            logWarn(`[IndexerRun] Failed to mark run ${indexerRunId} as failed: ${runFailError?.message || runFailError}`);
+          }
+        }
         // THROW so sync fails visibly
         throw new Error(`Swap processing failed: ${swapErrorMsg}`);
       }
@@ -257,6 +332,8 @@ export async function POST(request: NextRequest) {
         tokenAddress,
         swapsProcessed: totalSwapsProcessed,
         walletsFound: walletsFound.size,
+        bitqueryPages: swapResult.bitqueryPages,
+        bitqueryCalls: swapResult.bitqueryCalls,
         duration: `${duration}ms`,
         timestamp: new Date().toISOString()
       });
@@ -269,6 +346,21 @@ export async function POST(request: NextRequest) {
       markFailed(fullError);
       logError(`Sync failed: ${fullError}`);
       addError(fullError);
+
+      if (indexerRunId !== null) {
+        try {
+          await query(
+            `UPDATE indexer_runs
+             SET finished_at = NOW(),
+                 status = 'failed',
+                 error_message = $1
+             WHERE id = $2`,
+            [fullError, indexerRunId]
+          );
+        } catch (runFailError: any) {
+          logWarn(`[IndexerRun] Failed to mark run ${indexerRunId} as failed: ${runFailError?.message || runFailError}`);
+        }
+      }
 
       // Log stack trace if available
       if (error?.stack) {

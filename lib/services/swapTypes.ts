@@ -26,5 +26,17 @@ export interface SwapDetails {
   trackedTokenUsdValue?: number;
   baseTokenUsdValue?: number;
   priceUsd?: number;
+  // Additional Bitquery metadata
+  legIndex: number;
+  protocolName?: string;
+  buyerAddress?: string;
+  sellerAddress?: string;
+  trackedTokenAddress: string;
+  trackedTokenAmount: bigint;
+  trackedTokenDecimals: number;
+  baseTokenDecimals: number;
+  buyAmountUsd?: number;
+  sellAmountUsd?: number;
+  isProtocolFee?: boolean;
 }
 

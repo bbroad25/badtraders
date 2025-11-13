@@ -125,6 +125,9 @@ interface Token {
 }
 
 export default function IndexerPage() {
+  // Check if admin mode is enabled via environment variable
+  const isAdminMode = process.env.NEXT_PUBLIC_ENABLE_ADMIN_MODE === 'true'
+
   const [stats, setStats] = useState<IndexerStats | null>(null)
   const [wallets, setWallets] = useState<Wallet[]>([])
   const [trades, setTrades] = useState<Trade[]>([])
@@ -597,29 +600,33 @@ export default function IndexerPage() {
     const loadData = async () => {
       console.log('[Page Load] Fetching all data...')
       await fetchAll()
-      await fetchStatus()
-      await fetchLogs()
+      if (isAdminMode) {
+        await fetchStatus()
+        await fetchLogs()
+      }
     }
     loadData()
 
-    // Poll logs and status continuously if sync is running
-    const interval = setInterval(async () => {
-      await fetchStatus()
-      await fetchLogs()
-    }, 2000) // Poll every 2 seconds
+    // Poll logs and status continuously if admin mode is enabled
+    if (isAdminMode) {
+      const interval = setInterval(async () => {
+        await fetchStatus()
+        await fetchLogs()
+      }, 2000) // Poll every 2 seconds
 
-    // Cleanup interval on unmount
-    return () => clearInterval(interval)
-  }, []) // Only run on mount
+      // Cleanup interval on unmount
+      return () => clearInterval(interval)
+    }
+  }, [isAdminMode]) // Only run on mount
 
-  // Auto-refresh data when sync completes
+  // Auto-refresh data when sync completes (only in admin mode)
   useEffect(() => {
-    if (indexerStatus && !indexerStatus.isRunning && !isSyncing) {
+    if (isAdminMode && indexerStatus && !indexerStatus.isRunning && !isSyncing) {
       // Sync completed, refresh all data automatically
       console.log('[Sync Complete] Auto-refreshing data...')
       setTimeout(() => fetchAll(), 1000) // Small delay to ensure DB is updated
     }
-  }, [indexerStatus?.isRunning, isSyncing])
+  }, [isAdminMode, indexerStatus?.isRunning, isSyncing])
 
   useEffect(() => {
     if (activeTab === 'trades') {
@@ -827,32 +834,35 @@ export default function IndexerPage() {
                  </span>
                </div>
 
-               {/* Sync Type Toggle: Incremental vs Full */}
-               <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 bg-card border-2 border-primary rounded">
-                 <span className={`text-xs sm:text-sm font-bold uppercase transition-colors ${syncType === 'incremental' ? 'text-primary' : 'text-muted-foreground'}`}>
-                   Incremental
-                 </span>
-                 <button
-                   onClick={() => setSyncType(syncType === 'incremental' ? 'full' : 'incremental')}
-                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                     syncType === 'full' ? 'bg-primary' : 'bg-muted'
-                   }`}
-                   role="switch"
-                   aria-checked={syncType === 'full'}
-                   aria-label="Toggle sync type"
-                 >
-                   <span
-                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                       syncType === 'full' ? 'translate-x-6' : 'translate-x-1'
+               {/* Sync Type Toggle: Incremental vs Full - Admin Only */}
+               {isAdminMode && (
+                 <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 bg-card border-2 border-primary rounded">
+                   <span className={`text-xs sm:text-sm font-bold uppercase transition-colors ${syncType === 'incremental' ? 'text-primary' : 'text-muted-foreground'}`}>
+                     Incremental
+                   </span>
+                   <button
+                     onClick={() => setSyncType(syncType === 'incremental' ? 'full' : 'incremental')}
+                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                       syncType === 'full' ? 'bg-primary' : 'bg-muted'
                      }`}
-                   />
-                 </button>
-                 <span className={`text-xs sm:text-sm font-bold uppercase transition-colors ${syncType === 'full' ? 'text-primary' : 'text-muted-foreground'}`}>
-                   Full Sync
-                 </span>
-               </div>
+                     role="switch"
+                     aria-checked={syncType === 'full'}
+                     aria-label="Toggle sync type"
+                   >
+                     <span
+                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                         syncType === 'full' ? 'translate-x-6' : 'translate-x-1'
+                       }`}
+                     />
+                   </button>
+                   <span className={`text-xs sm:text-sm font-bold uppercase transition-colors ${syncType === 'full' ? 'text-primary' : 'text-muted-foreground'}`}>
+                     Full Sync
+                   </span>
+                 </div>
+               )}
 
-               {tokens.length > 0 && (
+               {/* Token Selector - Admin Only */}
+               {isAdminMode && tokens.length > 0 && (
                  <select
                    value={selectedToken || ''}
                    onChange={(e) => setSelectedToken(e.target.value)}
@@ -867,18 +877,21 @@ export default function IndexerPage() {
                    ))}
                  </select>
                )}
-               <Button
-                 onClick={() => {
-                   // Check if password is required BEFORE making request
-                   // Show password modal first, then sync will happen after password is entered
-                   setShowPasswordPrompt(true)
-                 }}
-                 disabled={isSyncing}
-                 className="px-3 sm:px-4 py-2"
-               >
-                 <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-                 Sync
-               </Button>
+               {/* Sync Button - Admin Only */}
+               {isAdminMode && (
+                 <Button
+                   onClick={() => {
+                     // Check if password is required BEFORE making request
+                     // Show password modal first, then sync will happen after password is entered
+                     setShowPasswordPrompt(true)
+                   }}
+                   disabled={isSyncing}
+                   className="px-3 sm:px-4 py-2"
+                 >
+                   <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                   Sync
+                 </Button>
+               )}
                <Button
                  onClick={fetchAll}
                  disabled={isLoading}
@@ -898,8 +911,8 @@ export default function IndexerPage() {
             </Card>
           )}
 
-          {/* Password Prompt Modal */}
-          {showPasswordPrompt && (
+          {/* Password Prompt Modal - Admin Only */}
+          {isAdminMode && showPasswordPrompt && (
             <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
               <Card className="bg-card border-2 border-primary p-6 max-w-md w-full">
                 <h3 className="text-xl font-bold uppercase mb-4">Sync Password Required</h3>
@@ -957,8 +970,8 @@ export default function IndexerPage() {
             </div>
           )}
 
-          {/* Sync Status Panel - Always show to display sync status and block info */}
-          {indexerStatus && (
+          {/* Sync Status Panel - Admin Only */}
+          {isAdminMode && indexerStatus && (
             <Card className={`bg-card border-2 mb-4 ${indexerStatus.isRunning ? 'border-primary' : 'border-primary/50'}`}>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -1242,7 +1255,7 @@ export default function IndexerPage() {
         {/* Tabs - Improved scrollable design */}
         <div className="mb-6">
           <div className="flex gap-2 border-b-2 border-primary pb-2 overflow-x-auto scrollbar-hide">
-            {(['overview', 'trades', 'top-traders', 'holders', 'positions', 'tokens', 'logs'] as TabType[]).map((tab) => (
+            {(['overview', 'trades', 'top-traders', 'holders', 'positions', 'tokens', ...(isAdminMode ? ['logs'] : [])] as TabType[]).map((tab) => (
               <Button
                 key={tab}
                 onClick={() => {
@@ -1601,6 +1614,108 @@ export default function IndexerPage() {
               </Card>
             )}
 
+            {/* Holders Tab */}
+            {activeTab === 'holders' && (
+              <Card className="bg-card border-2 border-primary">
+                <CardHeader>
+                  <CardTitle className="text-xl uppercase">Token Holders</CardTitle>
+                  {tokens.length > 0 && (
+                    <div className="mt-4">
+                      <label className="text-sm font-bold uppercase mb-2 block">Select Token</label>
+                      <select
+                        value={selectedToken || (tokens.length > 0 ? tokens[0].token_address : '')}
+                        onChange={(e) => {
+                          setSelectedToken(e.target.value)
+                          // Fetch holders for the selected token
+                          const tokenToUse = e.target.value || (tokens.length > 0 ? tokens[0].token_address : null)
+                          if (tokenToUse) {
+                            const params = new URLSearchParams({
+                              token_address: tokenToUse,
+                              limit: '100',
+                              offset: '0',
+                              ...(displayFilter === 'registered' && { wallet_filter: 'registered' })
+                            })
+                            fetch(`/api/indexer/holders?${params.toString()}`)
+                              .then(res => res.json())
+                              .then(data => setHolders(data.holders || []))
+                              .catch(err => {
+                                console.error('Error fetching holders:', err)
+                                setHolders([])
+                              })
+                          }
+                        }}
+                        className="px-3 py-2 bg-background border-2 border-primary rounded font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary w-full sm:w-auto min-w-[200px]"
+                      >
+                        {tokens.map((token) => (
+                          <option key={token.token_address} value={token.token_address}>
+                            {token.symbol} ({token.token_address.slice(0, 6)}...{token.token_address.slice(-4)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  {tokens.length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">No tokens available. Please add a token first.</p>
+                    </div>
+                  ) : holders.length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">
+                        No holders found for this token
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b-2 border-primary">
+                            <th className="text-left p-3 text-sm font-bold uppercase">Rank</th>
+                            <th className="text-left p-3 text-sm font-bold uppercase">Wallet</th>
+                            <th className="text-right p-3 text-sm font-bold uppercase">Amount</th>
+                            <th className="text-right p-3 text-sm font-bold uppercase">Percentage</th>
+                            <th className="text-right p-3 text-sm font-bold uppercase">Value (USD)</th>
+                            <th className="text-right p-3 text-sm font-bold uppercase">Txn Count</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {holders.map((holder: any) => (
+                            <tr key={holder.wallet_address} className="border-b border-primary/20 hover:bg-secondary/50">
+                              <td className="p-3 font-bold">#{holder.rank}</td>
+                              <td className="p-3">
+                                <a
+                                  href={getBaseScanAddressUrl(holder.wallet_address)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-mono text-sm hover:text-primary flex items-center gap-1"
+                                >
+                                  {formatAddress(holder.wallet_address)}
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </td>
+                              <td className="p-3 text-right font-mono text-sm">
+                                {formatNumber(parseFloat(holder.amount) / 1e18)}
+                              </td>
+                              <td className="p-3 text-right text-sm">
+                                {holder.percentage > 0 ? `${formatNumber(holder.percentage, 4)}%` : 'N/A'}
+                              </td>
+                              <td className="p-3 text-right font-bold">
+                                ${formatNumber(holder.value_usd || 0)}
+                              </td>
+                              <td className="p-3 text-right text-sm">
+                                {holder.txn_count || 0}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Tokens Tab */}
             {activeTab === 'tokens' && (
               <Card className="bg-card border-2 border-primary">
@@ -1608,11 +1723,13 @@ export default function IndexerPage() {
                   <CardTitle className="text-xl uppercase">Tracked Tokens</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {/* Add Token Form */}
-                  <div className="mb-6 p-4 bg-secondary/50 border border-primary rounded">
-                    <h3 className="text-lg font-bold uppercase mb-4">Add New Token</h3>
-                    <TokenForm onSuccess={fetchTokens} />
-                  </div>
+                  {/* Add Token Form - Admin Only */}
+                  {isAdminMode && (
+                    <div className="mb-6 p-4 bg-secondary/50 border border-primary rounded">
+                      <h3 className="text-lg font-bold uppercase mb-4">Add New Token</h3>
+                      <TokenForm onSuccess={fetchTokens} />
+                    </div>
+                  )}
 
                   {/* Token List */}
                   {tokens.length === 0 ? (
@@ -1630,8 +1747,8 @@ export default function IndexerPage() {
               </Card>
             )}
 
-            {/* Logs Tab */}
-            {activeTab === 'logs' && (
+            {/* Logs Tab - Admin Only */}
+            {isAdminMode && activeTab === 'logs' && (
               <Card className="bg-card border-2 border-primary">
                 <CardHeader>
                   <CardTitle className="text-xl uppercase flex items-center gap-2">

@@ -117,7 +117,8 @@ export async function GET(request: NextRequest) {
           try {
             unrealizedPnL = await calculateUnrealizedPnL(
               walletAddress,
-              position.token_address
+              position.token_address,
+              0
             );
           } catch (error) {
             console.error(`Error calculating unrealized PnL for ${walletAddress}:`, error);

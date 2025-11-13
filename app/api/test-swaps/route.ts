@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     logInfo(`Testing blocks ${minBlock} to ${maxBlock}`);
 
     const startTime = Date.now();
-    const result = await processSwapsFromBitquery(testToken, minBlock, maxBlock);
+    const result = await processSwapsFromBitquery(testToken);
     const duration = Date.now() - startTime;
 
     // Get trades that were inserted
@@ -74,6 +74,8 @@ export async function GET(request: NextRequest) {
         swapsProcessed: result.swapsProcessed,
         walletsFound: result.walletsFound.size,
         wallets: Array.from(result.walletsFound).slice(0, 10), // First 10 wallets
+        bitqueryPages: result.bitqueryPages,
+        bitqueryCalls: result.bitqueryCalls,
         tradesInDB: parseInt(insertedTrades.rows[0].count),
       },
       message: result.swapsProcessed > 0
