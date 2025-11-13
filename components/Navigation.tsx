@@ -158,13 +158,13 @@ export default function Navigation() {
           </button>
         </div>
 
-        {/* Mobile Menu - Slide down */}
+        {/* Mobile Menu - Slide down with scroll */}
         <div
           className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${
-            isMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+            isMenuOpen ? "max-h-[70vh] opacity-100" : "max-h-0 opacity-0"
           }`}
         >
-          <div className="flex flex-col gap-2 py-4">
+          <div className="flex flex-col gap-1.5 py-2 overflow-y-auto max-h-[70vh]">
             {navItems.map((item) => {
               const isActive = pathname === item.href || (item.href === "/" && pathname === "/")
               return (
@@ -177,10 +177,10 @@ export default function Navigation() {
                   <Button
                     variant={isActive ? "default" : "outline"}
                     className={`
-                      w-full text-base font-bold uppercase border-2
+                      w-full text-xs sm:text-sm font-bold uppercase border-2 py-2 px-3
                       ${isActive
-                        ? "bg-primary text-primary-foreground border-primary shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                        : "bg-secondary text-secondary-foreground border-primary hover:bg-accent hover:text-accent-foreground shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                        ? "bg-primary text-primary-foreground border-primary shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                        : "bg-secondary text-secondary-foreground border-primary hover:bg-accent hover:text-accent-foreground shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
                       }
                       transition-all hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]
                     `}
@@ -192,13 +192,13 @@ export default function Navigation() {
             })}
             {/* Wallet Connect - Mobile - Only show when NOT in Farcaster miniapp */}
             {!isLoadingFarcaster && !isInFarcaster && (
-              <div className="flex justify-center py-4 border-t-2 border-primary">
+              <div className="flex justify-center py-2 border-t-2 border-primary mt-2">
                 <WalletConnect />
               </div>
             )}
             {/* Show nothing in Farcaster - don't even load the component */}
             {/* Social Icons - Mobile */}
-            <div className="flex items-center justify-center gap-4 pt-4 border-t-2 border-primary">
+            <div className="flex items-center justify-center gap-3 pt-2 border-t-2 border-primary mt-2">
               {socialLinks.map((social) => {
                 const IconComponent = social.icon
                 return (
@@ -208,9 +208,9 @@ export default function Navigation() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={social.ariaLabel}
-                    className="p-2 text-primary hover:text-primary/80 hover:bg-accent rounded transition-colors"
+                    className="p-1.5 text-primary hover:text-primary/80 hover:bg-accent rounded transition-colors"
                   >
-                    <IconComponent className="w-6 h-6" />
+                    <IconComponent className="w-4 h-4" />
                   </a>
                 )
               })}
