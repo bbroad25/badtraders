@@ -3,10 +3,16 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Twitter, Github } from "lucide-react"
 import { useFarcasterContext } from "@/lib/hooks/useFarcasterContext"
-import WalletConnect from "@/components/WalletConnect"
+
+// Dynamically import WalletConnect only when not in Farcaster to prevent initialization
+const WalletConnect = dynamic(
+  () => import("@/components/WalletConnect"),
+  { ssr: false }
+)
 
 export default function Navigation() {
   const pathname = usePathname()
@@ -102,6 +108,7 @@ export default function Navigation() {
                 <WalletConnect />
               </div>
             )}
+            {/* Show nothing in Farcaster - don't even load the component */}
             {/* Social Icons - Desktop */}
             <div className="hidden md:flex items-center gap-2 ml-2 pl-2 border-l-2 border-primary">
               {socialLinks.map((social) => {
@@ -184,6 +191,7 @@ export default function Navigation() {
                 <WalletConnect />
               </div>
             )}
+            {/* Show nothing in Farcaster - don't even load the component */}
             {/* Social Icons - Mobile */}
             <div className="flex items-center justify-center gap-4 pt-4 border-t-2 border-primary">
               {socialLinks.map((social) => {

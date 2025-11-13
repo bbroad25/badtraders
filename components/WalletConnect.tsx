@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { ethers } from 'ethers'
 import { useFarcasterContext } from '@/lib/hooks/useFarcasterContext'
 
 interface WalletConnectProps {
@@ -14,11 +13,16 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
   const [isConnecting, setIsConnecting] = useState(false)
   const { isInFarcaster, isLoading } = useFarcasterContext()
 
+  // Early return - don't do ANYTHING if in Farcaster (including loading ethers)
+  if (isLoading || isInFarcaster) {
+    return null
+  }
+
   // Listen for account changes ONLY - don't check or prompt automatically
   // This is passive - only listens for changes, doesn't initiate connections
   // Only run when NOT in Farcaster miniapp
   useEffect(() => {
-    // Don't do anything if in Farcaster or still loading
+    // Double-check - should never reach here if in Farcaster due to early return above
     if (isLoading || isInFarcaster) {
       return
     }
@@ -43,11 +47,6 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
     }
   }, [onConnect, isInFarcaster, isLoading])
 
-  // Don't render anything if in Farcaster miniapp - WalletConnect only works on website
-  if (isLoading || isInFarcaster) {
-    return null
-  }
-
   const handleConnect = async () => {
     if (typeof window === 'undefined' || !window.ethereum) {
       alert('Please install a wallet extension like MetaMask')
@@ -56,6 +55,8 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
 
     setIsConnecting(true)
     try {
+      // Dynamically import ethers only when needed (not in Farcaster)
+      const { ethers } = await import('ethers')
       const provider = new ethers.BrowserProvider(window.ethereum)
       await provider.send('eth_requestAccounts', [])
       const signer = await provider.getSigner()
