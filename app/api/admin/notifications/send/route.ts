@@ -56,14 +56,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if NEYNAR_API_KEY is set
-    if (!process.env.NEYNAR_API_KEY) {
-      console.error('❌ NEYNAR_API_KEY not configured');
-      return NextResponse.json(
-        { error: 'Neynar API key not configured' },
-        { status: 500 }
-      );
-    }
+    // No API key needed - we use stored tokens directly
 
     // Determine target FIDs
     const targetFids = targetFid ? [targetFid] : [];
@@ -71,22 +64,20 @@ export async function POST(request: NextRequest) {
     // Determine target URL
     const targetUrl = url || process.env.NEXT_PUBLIC_APP_URL || 'https://badtraders.xyz';
 
-    // Send notification via Neynar
+    // Send notification using stored Farcaster tokens
     try {
       await sendNotification(targetFids, title, bodyText, targetUrl);
     } catch (notificationError: any) {
-      // Extract detailed error information from Neynar API
-      const errorDetails = notificationError?.response?.data || notificationError?.message || 'Unknown error';
-      console.error('❌ Neynar API error details:', {
+      // Extract detailed error information
+      const errorDetails = notificationError?.message || 'Unknown error';
+      console.error('❌ Notification sending error:', {
         message: notificationError?.message,
-        status: notificationError?.response?.status,
-        data: notificationError?.response?.data,
         stack: notificationError?.stack
       });
 
       return NextResponse.json(
         {
-          error: 'Failed to send notification via Neynar',
+          error: 'Failed to send notifications',
           details: errorDetails,
           message: typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails)
         },
@@ -97,7 +88,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Notification sent successfully',
-      method: 'Neynar API',
+      method: 'Farcaster Notification API (stored tokens)',
       targetFids: targetFids.length === 0 ? 'ALL_USERS' : targetFids
     });
   } catch (error: any) {

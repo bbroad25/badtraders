@@ -235,16 +235,24 @@ export default function BadTradersLanding() {
     try {
       setIsAddingMiniApp(true)
       const result = await sdk.actions.addMiniApp()
-      if (result) {
+      
+      // SDK returns { added: boolean }
+      if (result?.added) {
         console.log('✅ Mini app added successfully')
-        // Wait a moment for webhook to process, then check status
+        // Wait for webhook to process (give it time)
         setTimeout(() => {
           checkNotificationStatus()
-        }, 2000)
+        }, 3000)
+      } else {
+        console.log('User declined to add mini app or already added')
+        // Still check status in case it was already added
+        setTimeout(() => {
+          checkNotificationStatus()
+        }, 1000)
       }
     } catch (error: any) {
       console.error('Error adding mini app:', error)
-      alert('Failed to add mini app. Please try again.')
+      alert(`Failed to add mini app: ${error.message || 'Unknown error'}`)
     } finally {
       setIsAddingMiniApp(false)
     }
