@@ -8,17 +8,14 @@ export async function GET(req: NextRequest) {
 
   // Normalize domain - remove www for canonicalDomain but keep it in URLs
   const canonicalDomain = host.replace(/^www\./, '');
-
+  
   // Get Neynar app ID from environment variable
   const neynarAppId = process.env.NEYNAR_CLIENT_ID;
-  if (!neynarAppId) {
-    console.error('NEYNAR_CLIENT_ID is not set in environment variables');
-  }
-  const webhookUrl = neynarAppId
+  const webhookUrl = neynarAppId 
     ? `https://api.neynar.com/f/app/${neynarAppId}/event`
     : undefined;
-
-  const manifest = {
+  
+  const manifest: any = {
     miniapp: {
       version: "1",
       name: "Bad Traders",
@@ -38,7 +35,7 @@ export async function GET(req: NextRequest) {
       signature: "UMNPzKG3f1sr1ZfgCKpuFhgFMhpodHLaIY+wrTTNXfQE8IbyzlXtDqKYSjTcLAMH9sYWOueC7UTvs2t2ViKJRRs="
     }
   };
-
+  
   // Add webhookUrl if Neynar client ID is configured
   if (webhookUrl) {
     manifest.miniapp.webhookUrl = webhookUrl;
