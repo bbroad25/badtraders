@@ -156,8 +156,11 @@ export default function LeaderboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - only run once on mount
 
-  // Listen for wallet connections from WalletConnect (website users)
+  // Listen for wallet connections from WalletConnect (website users only - NOT in Farcaster)
   useEffect(() => {
+    // Don't run if in Farcaster miniapp - wallet is handled by Farcaster SDK
+    if (userFid !== null) return; // If we have FID, we're in Farcaster, skip this
+    
     if (typeof window === 'undefined' || !window.ethereum) return;
 
     const checkWalletConnection = async () => {
@@ -208,7 +211,7 @@ export default function LeaderboardPage() {
       window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
       window.ethereum?.removeListener('connect', checkWalletConnection);
     };
-  }, [loadTokenBalance]); // Remove walletAddress from deps to avoid loops
+  }, [loadTokenBalance, userFid]); // Add userFid to deps - if we have FID, skip wallet checks
 
   useEffect(() => {
     const loadLeaderboard = async () => {
