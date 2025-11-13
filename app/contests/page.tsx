@@ -434,8 +434,8 @@ export default function ContestsPage() {
             <div className="flex-1">
               <h2 className="text-xl font-bold mb-2 text-yellow-600 uppercase">Beta Disclaimer</h2>
               <p className="text-base leading-relaxed">
-                Contests are in <strong>beta</strong> and may experience issues as we iron out the details. 
-                We encourage you to enter contests anyway! Your participation helps us improve the system. 
+                Contests are in <strong>beta</strong> and may experience issues as we iron out the details.
+                We encourage you to enter contests anyway! Your participation helps us improve the system.
                 If you encounter any problems, please let us know.
               </p>
             </div>

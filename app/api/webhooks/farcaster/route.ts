@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db/connection';
+import { verifyWebhookEvent } from '@farcaster/miniapp-node';
 
 /**
  * POST /api/webhooks/farcaster
@@ -7,7 +8,14 @@ import { query } from '@/lib/db/connection';
  * Webhook endpoint to handle Farcaster notification events
  * According to Farcaster docs: https://miniapps.farcaster.xyz/docs/guides/notifications
  *
- * Event formats:
+ * Events are signed JSON Farcaster Signatures with format:
+ * {
+ *   header: string (base64url encoded),
+ *   payload: string (base64url encoded),
+ *   signature: string (base64url encoded)
+ * }
+ *
+ * Event types:
  * - miniapp_added: { event: "miniapp_added", notificationDetails: { token, url } }
  * - notifications_enabled: { event: "notifications_enabled", notificationDetails: { token, url } }
  * - notifications_disabled: { event: "notifications_disabled" }
@@ -15,25 +23,40 @@ import { query } from '@/lib/db/connection';
  */
 export async function POST(request: NextRequest) {
   try {
+    // Webhook events are signed JSON Farcaster Signatures
     const body = await request.json();
-    const { event, notificationDetails } = body;
 
-    console.log('📬 Farcaster notification webhook:', {
-      event,
-      hasNotificationDetails: !!notificationDetails
+    console.log('📬 Farcaster notification webhook received:', {
+      hasHeader: !!body.header,
+      hasPayload: !!body.payload,
+      hasSignature: !!body.signature
     });
 
-    if (!event) {
+    // Verify the webhook signature
+    let verifiedEvent;
+    try {
+      verifiedEvent = await verifyWebhookEvent(body);
+      console.log('✅ Webhook signature verified:', {
+        fid: verifiedEvent.fid,
+        event: verifiedEvent.event
+      });
+    } catch (verifyError: any) {
+      console.error('❌ Webhook signature verification failed:', verifyError);
       return NextResponse.json(
-        { error: 'event is required' },
-        { status: 400 }
+        { error: 'Invalid webhook signature', details: verifyError.message },
+        { status: 401 }
       );
     }
 
-    // Extract FID from the signed event (would need verification in production)
-    // For now, we'll need to get it from the body or verify the signature
-    // The actual webhook format includes signed data - we'd need to verify it
-    // But for now, let's handle the basic structure
+    const { event, notificationDetails } = verifiedEvent;
+    const fid = verifiedEvent.fid;
+
+    if (!event) {
+      return NextResponse.json(
+        { error: 'event is required in verified payload' },
+        { status: 400 }
+      );
+    }
 
     if (event === 'miniapp_added' || event === 'notifications_enabled') {
       if (!notificationDetails || !notificationDetails.token || !notificationDetails.url) {
@@ -43,26 +66,32 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // TODO: Extract FID from signed event data and verify signature
-      // For now, we'll need to get FID from the verified event
-      // This requires using @farcaster/miniapp-node to verify the webhook
+      console.log(`✅ Notifications enabled for FID ${fid} - storing token`);
 
-      console.log(`✅ Notifications enabled - token received`);
-      // Store token when we have verified FID
-      // await query(
-      //   `INSERT INTO notification_tokens (fid, token, url, created_at, updated_at)
-      //    VALUES ($1, $2, $3, NOW(), NOW())
-      //    ON CONFLICT (fid, token) DO UPDATE SET url = $3, updated_at = NOW()`,
-      //   [fid, notificationDetails.token, notificationDetails.url]
-      // );
+      // Store the notification token
+      await query(
+        `INSERT INTO notification_tokens (fid, token, url, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW())
+         ON CONFLICT (fid, token) DO UPDATE SET url = $3, updated_at = NOW()`,
+        [fid, notificationDetails.token, notificationDetails.url]
+      );
+
+      console.log(`✅ Notification token stored for FID ${fid}`);
 
       return NextResponse.json({
         success: true,
-        message: 'Notification token received'
+        message: 'Notification token received and stored'
       });
     } else if (event === 'notifications_disabled' || event === 'miniapp_removed') {
-      // TODO: Remove tokens for this user when we have verified FID
-      console.log(`❌ Notifications disabled or miniapp removed`);
+      console.log(`❌ Notifications disabled or miniapp removed for FID ${fid}`);
+
+      // Remove all tokens for this FID
+      await query(
+        `DELETE FROM notification_tokens WHERE fid = $1`,
+        [fid]
+      );
+
+      console.log(`✅ Notification tokens removed for FID ${fid}`);
 
       return NextResponse.json({
         success: true,

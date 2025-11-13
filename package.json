@@ -14,9 +14,12 @@
     "test:coverage": "vitest run --coverage",
     "test:incremental": "tsx scripts/test-indexer.ts",
     "migrate": "tsx scripts/run-migration.ts",
-    "add-token": "tsx scripts/add-token.ts"
+    "add-token": "tsx scripts/add-token.ts",
+    "cleanup": "tsx scripts/run-cleanup.ts",
+    "cleanup:check-only": "tsx scripts/run-cleanup.ts --no-remove"
   },
   "dependencies": {
+    "@farcaster/miniapp-node": "^0.1.11",
     "@farcaster/miniapp-sdk": "^0.2.1",
     "@google/genai": "^1.28.0",
     "@hookform/resolvers": "^3.10.0",

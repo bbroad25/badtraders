@@ -43,6 +43,7 @@ export default function AdminPage() {
   // Eligibility cleanup state
   const [isRunningCleanup, setIsRunningCleanup] = useState(false)
   const [cleanupMessage, setCleanupMessage] = useState<{ type: "success" | "error"; text: string; details?: any } | null>(null)
+  const [showCleanupDetails, setShowCleanupDetails] = useState(false)
   const [removeFromIndexing, setRemoveFromIndexing] = useState(true)
 
   // Voting period creation state
@@ -288,8 +289,8 @@ export default function AdminPage() {
           text: data.message || "Cleanup completed successfully!",
           details: data.result
         })
-        // Clear message after 10 seconds
-        setTimeout(() => setCleanupMessage(null), 10000)
+        setShowCleanupDetails(false) // Collapse details initially
+        // Message stays visible until user closes it
       } else {
         setCleanupMessage({ type: "error", text: `Failed to run cleanup: ${data.error || "Unknown error"}` })
       }
@@ -741,26 +742,78 @@ export default function AdminPage() {
 
             {cleanupMessage && (
               <div
-                className={`p-4 rounded-md ${
+                className={`p-4 rounded-md relative ${
                   cleanupMessage.type === "success"
                     ? "bg-green-500/20 text-green-400 border border-green-500/50"
                     : "bg-red-500/20 text-red-400 border border-red-500/50"
                 }`}
               >
-                <p className="text-sm font-medium mb-2">
+                <button
+                  onClick={() => setCleanupMessage(null)}
+                  className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+                <p className="text-sm font-medium mb-2 pr-6">
                   {cleanupMessage.type === "success" ? "✓ " : "✗ "}
                   {cleanupMessage.text}
                 </p>
                 {cleanupMessage.details && (
-                  <div className="text-xs mt-2 space-y-1">
-                    <p>Total checked: {cleanupMessage.details.totalChecked}</p>
-                    <p>Still eligible: {cleanupMessage.details.stillEligible}</p>
-                    <p>No longer eligible: {cleanupMessage.details.noLongerEligible}</p>
-                    {removeFromIndexing && (
-                      <p>Removed from indexing: {cleanupMessage.details.removedFromIndexing}</p>
-                    )}
-                    {cleanupMessage.details.errors > 0 && (
-                      <p className="text-yellow-400">Errors: {cleanupMessage.details.errors}</p>
+                  <div className="text-xs mt-2 space-y-2">
+                    <div className="space-y-1">
+                      <p><strong>Total checked:</strong> {cleanupMessage.details.totalChecked}</p>
+                      <p><strong>Still eligible:</strong> {cleanupMessage.details.stillEligible}</p>
+                      <p><strong>No longer eligible:</strong> {cleanupMessage.details.noLongerEligible}</p>
+                      {removeFromIndexing && (
+                        <p><strong>Removed from indexing:</strong> {cleanupMessage.details.removedFromIndexing}</p>
+                      )}
+                      {cleanupMessage.details.errors > 0 && (
+                        <p className="text-yellow-400"><strong>Errors:</strong> {cleanupMessage.details.errors}</p>
+                      )}
+                    </div>
+
+                    {cleanupMessage.details.details && cleanupMessage.details.details.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-current/20">
+                        <button
+                          onClick={() => setShowCleanupDetails(!showCleanupDetails)}
+                          className="text-xs underline hover:no-underline mb-2"
+                        >
+                          {showCleanupDetails ? "▼ Hide" : "▶ Show"} detailed results ({cleanupMessage.details.details.length} users)
+                        </button>
+                        {showCleanupDetails && (
+                          <div className="mt-2 space-y-2 max-h-96 overflow-y-auto">
+                            {cleanupMessage.details.details.map((detail: any, index: number) => (
+                              <div
+                                key={index}
+                                className={`p-2 rounded text-xs border ${
+                                  detail.action === 'removed'
+                                    ? 'bg-red-500/10 border-red-500/30'
+                                    : detail.action === 'kept'
+                                    ? 'bg-green-500/10 border-green-500/30'
+                                    : 'bg-yellow-500/10 border-yellow-500/30'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1">
+                                    <p className="font-bold">
+                                      {detail.action === 'removed' ? '❌ Removed' : detail.action === 'kept' ? '✅ Kept' : '⚠️ Error'}:
+                                      FID {detail.fid} {detail.username ? `(@${detail.username})` : ''}
+                                    </p>
+                                    <p className="text-muted-foreground mt-1">
+                                      Wallet: <code className="text-xs">{detail.walletAddress}</code>
+                                    </p>
+                                    <p className="mt-1">
+                                      Balance: <strong>{detail.currentBalance.toLocaleString()}</strong> /
+                                      Threshold: <strong>{detail.threshold.toLocaleString()}</strong>
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}

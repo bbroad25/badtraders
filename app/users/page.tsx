@@ -21,12 +21,13 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false) // Filter: only show active registered users by default
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch('/api/users')
+        const response = await fetch(`/api/users${showAll ? '?showAll=true' : ''}`)
         const data = await response.json()
 
         if (response.ok && data.success) {
@@ -45,7 +46,7 @@ export default function UsersPage() {
     }
 
     fetchUsers()
-  }, [])
+  }, [showAll])
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A'
@@ -65,11 +66,22 @@ export default function UsersPage() {
             REGISTERED USERS
           </h1>
           <p className="text-lg text-muted-foreground">
-            Complete list of all registered users in the database
+            {showAll ? 'All users in the database' : 'Active registered users (opted in)'}
           </p>
+          <div className="flex items-center justify-center gap-4 mt-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-muted-foreground">Show all users (including removed)</span>
+            </label>
+          </div>
           {!isLoading && (
             <p className="text-sm text-muted-foreground mt-2">
-              Total: {users.length} users
+              {showAll ? `Total: ${users.length} users (all)` : `Active: ${users.length} users`}
             </p>
           )}
         </div>
