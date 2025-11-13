@@ -1876,6 +1876,7 @@ export default function StatsPage() {
             )}
 
           </>
+          </>
         )}
 
         <div className="mt-8 text-center">
