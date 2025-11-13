@@ -10,7 +10,7 @@ import { query } from '@/lib/db/connection';
 /**
  * Send notification using stored Farcaster notification tokens
  * Posts directly to Farcaster's notification API using stored tokens
- * 
+ *
  * @param targetFids Array of FIDs to notify (empty array = all users with notifications enabled)
  * @param title Notification title (max 32 chars)
  * @param body Notification body (max 128 chars)
@@ -39,7 +39,7 @@ export async function sendNotification(
     }
 
     const tokens = tokensQuery.rows;
-    
+
     if (tokens.length === 0) {
       console.warn('⚠️ No notification tokens found for target FIDs');
       return;
@@ -89,7 +89,7 @@ export async function sendNotification(
     const failureCount = results.length - successCount;
 
     console.log(`✅ Notification results: ${successCount} succeeded, ${failureCount} failed`);
-    
+
     if (failureCount > 0) {
       const failures = results
         .filter(r => r.status === 'fulfilled' && r.value.status === 'failed')

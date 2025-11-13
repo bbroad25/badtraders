@@ -235,7 +235,7 @@ export default function BadTradersLanding() {
     try {
       setIsAddingMiniApp(true)
       const result = await sdk.actions.addMiniApp()
-      
+
       // SDK returns { added: boolean }
       if (result?.added) {
         console.log('✅ Mini app added successfully')
