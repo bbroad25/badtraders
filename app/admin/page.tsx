@@ -59,6 +59,15 @@ export default function AdminPage() {
   const [isCreatingContest, setIsCreatingContest] = useState(false)
   const [contestMessage, setContestMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
+  // ComposeCast testing state
+  const [selectedCastType, setSelectedCastType] = useState<"registration" | "loserboard">("registration")
+  const [castText, setCastText] = useState("")
+  const [castEmbeds, setCastEmbeds] = useState("")
+  const [castParentUrl, setCastParentUrl] = useState("")
+  const [isComposingCast, setIsComposingCast] = useState(false)
+  const [castResult, setCastResult] = useState<any>(null)
+  const [castError, setCastError] = useState<string | null>(null)
+
 
   // Redirect if not admin
   useEffect(() => {
@@ -414,6 +423,82 @@ export default function AdminPage() {
         </div>
       </div>
     )
+  }
+
+  // Initialize cast text based on selected type
+  useEffect(() => {
+    if (selectedCastType === "registration") {
+      const miniappUrl = typeof window !== 'undefined' ? window.location.origin : 'https://badtraders.xyz'
+      setCastText(`Just signed up for the $BADTRADERS competition! 🎯
+
+The worst trader wins a share of trading fees. You need 10M+ tokens to compete.
+
+Try it: ${miniappUrl}`)
+      setCastEmbeds(miniappUrl)
+      setCastParentUrl("")
+    } else if (selectedCastType === "loserboard") {
+      const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://badtraders.xyz'
+      setCastText(`🏆 New loser added to the $BADTRADERS loserboard!
+
+@username has been officially declared a loser. Check out the full loserboard!`)
+      setCastEmbeds(`${appUrl}/leaderboard`)
+      setCastParentUrl("")
+    }
+  }, [selectedCastType])
+
+  const handleComposeCast = async () => {
+    if (!castText.trim()) {
+      setCastError("Cast text is required")
+      return
+    }
+
+    setIsComposingCast(true)
+    setCastResult(null)
+    setCastError(null)
+
+    try {
+      const embedsArray = castEmbeds
+        .split(',')
+        .map(e => e.trim())
+        .filter(e => e.length > 0)
+
+      const composeParams: any = {
+        text: castText
+      }
+
+      if (embedsArray.length > 0) {
+        composeParams.embeds = embedsArray
+      }
+
+      if (castParentUrl.trim()) {
+        composeParams.parentUrl = castParentUrl.trim()
+      }
+
+      const result = await sdk.actions.composeCast(composeParams)
+
+      if (result?.cast) {
+        setCastResult({
+          success: true,
+          cast: result.cast,
+          hash: result.cast.hash,
+          text: result.cast.text,
+          embeds: result.cast.embeds,
+          timestamp: new Date().toISOString()
+        })
+        setCastError(null)
+      } else {
+        setCastResult({
+          success: false,
+          message: "Cast composition was cancelled by user"
+        })
+      }
+    } catch (error: any) {
+      console.error('Error composing cast:', error)
+      setCastError(error.message || 'Failed to compose cast')
+      setCastResult(null)
+    } finally {
+      setIsComposingCast(false)
+    }
   }
 
   if (!isAdmin) {
