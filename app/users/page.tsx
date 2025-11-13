@@ -62,7 +62,7 @@ export default function UsersPage() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-5xl md:text-7xl font-bold text-primary uppercase mb-4">
-            ALL USERS
+            REGISTERED USERS
           </h1>
           <p className="text-lg text-muted-foreground">
             Complete list of all registered users in the database
@@ -88,56 +88,52 @@ export default function UsersPage() {
             <p className="text-muted-foreground mt-2">No one has registered yet.</p>
           </Card>
         ) : (
-          <div className="space-y-4">
-            {users.map((user) => (
-              <Card
-                key={user.id}
-                className="bg-card border-4 border-primary p-6 shadow-[8px_8px_0px_0px_rgba(147,51,234,1)]"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground uppercase mb-1">FID</p>
-                    <p className="text-lg font-bold font-mono">{user.fid}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground uppercase mb-1">Username</p>
-                    <p className="text-lg font-bold">{user.username || 'N/A'}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground uppercase mb-1">Wallet</p>
-                    <p className="text-sm font-mono break-all">{user.wallet_address}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground uppercase mb-1">Status</p>
-                    <div className="flex flex-wrap gap-2">
-                      {user.eligibility_status && (
-                        <span className="text-xs font-bold uppercase bg-green-600 text-white px-2 py-1 border-2 border-green-700">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b-4 border-primary bg-card">
+                  <th className="text-left p-4 text-sm font-bold uppercase">FID</th>
+                  <th className="text-left p-4 text-sm font-bold uppercase">Username</th>
+                  <th className="text-left p-4 text-sm font-bold uppercase">Wallet Address</th>
+                  <th className="text-left p-4 text-sm font-bold uppercase">Eligibility Status</th>
+                  <th className="text-left p-4 text-sm font-bold uppercase">Registered Status</th>
+                  <th className="text-left p-4 text-sm font-bold uppercase">Registered At</th>
+                  <th className="text-left p-4 text-sm font-bold uppercase">Last Active</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr
+                    key={user.id}
+                    className="border-b-2 border-primary/20 hover:bg-secondary/50 transition-colors"
+                  >
+                    <td className="p-4 font-mono font-bold">{user.fid}</td>
+                    <td className="p-4">{user.username || 'N/A'}</td>
+                    <td className="p-4 font-mono text-sm break-all">{user.wallet_address}</td>
+                    <td className="p-4">
+                      {user.eligibility_status ? (
+                        <span className="text-xs font-bold uppercase bg-green-600 text-white px-2 py-1 border-2 border-green-700 rounded">
                           Eligible
                         </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Not Eligible</span>
                       )}
-                      {user.opt_in_status && (
-                        <span className="text-xs font-bold uppercase bg-primary text-primary-foreground px-2 py-1 border-2 border-primary">
+                    </td>
+                    <td className="p-4">
+                      {user.opt_in_status ? (
+                        <span className="text-xs font-bold uppercase bg-primary text-primary-foreground px-2 py-1 border-2 border-primary rounded">
                           Registered
                         </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Not Registered</span>
                       )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground uppercase mb-1">Registered</p>
-                    <p className="text-sm">{formatDate(user.registered_at)}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground uppercase mb-1">Last Active</p>
-                    <p className="text-sm">{formatDate(user.last_active_at)}</p>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                    </td>
+                    <td className="p-4 text-sm">{formatDate(user.registered_at)}</td>
+                    <td className="p-4 text-sm">{formatDate(user.last_active_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 

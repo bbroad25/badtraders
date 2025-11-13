@@ -33,9 +33,9 @@ function getSupabasePool(): Pool {
 
     pgPool = new Pool({
       connectionString,
-      max: 1, // Serverless-friendly: limit connections per function
-      idleTimeoutMillis: 10000, // Reduced from 30s to 10s - pooler closes faster
-      connectionTimeoutMillis: 5000,
+      max: 2, // Allow 2 connections to handle concurrent requests during sync
+      idleTimeoutMillis: 30000, // 30 seconds
+      connectionTimeoutMillis: 60000, // 60 seconds - wait longer for pooler
       ssl: sslConfig
     });
 
@@ -61,12 +61,18 @@ export async function query(text: string, params?: any[]) {
   try {
     const result = await pool.query(text, params);
     return result;
-  } catch (error: any) {
+    } catch (error: any) {
     // If connection was terminated, reset pool and retry once
+    // Don't reset on timeout - that just means pooler is busy, connection is still valid
     const errorMessage = error?.message || String(error);
-    if (errorMessage.includes('shutdown') || errorMessage.includes('db_termination') || errorMessage.includes('terminated')) {
-      console.warn('Connection terminated, resetting pool and retrying...');
+    if (errorMessage.includes('shutdown') ||
+        errorMessage.includes('db_termination') ||
+        errorMessage.includes('terminated') ||
+        errorMessage.includes('Connection terminated')) {
+      console.warn('Connection terminated, resetting pool and retrying...', errorMessage);
       pgPool = null;
+      // Wait a moment before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000));
       pool = getSupabasePool();
       try {
         const retryResult = await pool.query(text, params);
@@ -76,9 +82,19 @@ export async function query(text: string, params?: any[]) {
         throw retryError;
       }
     }
+    // For timeout errors, just throw - don't reset pool (pooler is just busy)
     console.error('Supabase query error:', error);
     throw error;
   }
+}
+
+/**
+ * Get a client from the pool for transactions
+ * Remember to call client.release() when done!
+ */
+export async function getClient() {
+  const pool = getSupabasePool();
+  return await pool.connect();
 }
 
 /**

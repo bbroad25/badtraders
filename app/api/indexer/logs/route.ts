@@ -1,39 +1,45 @@
+// app/api/indexer/logs/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getLogs, getLogsSince } from '@/lib/services/indexerLogger';
 
-/**
- * Get indexer logs (like terminal output)
- *
- * Query params:
- * - limit: Number of recent logs to return (default: 500)
- * - since: ISO timestamp to get logs since (optional)
- */
+// Suppress Next.js logging for this polling endpoint
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const limit = parseInt(searchParams.get('limit') || '500');
+    // Check if admin mode is enabled
+    if (process.env.ENABLE_ADMIN_MODE !== 'true') {
+      return NextResponse.json(
+        { error: 'Admin mode is not enabled' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const limit = searchParams.get('limit');
     const since = searchParams.get('since');
 
     let logs;
     if (since) {
       const sinceDate = new Date(since);
       logs = getLogsSince(sinceDate);
+    } else if (limit) {
+      logs = getLogs(parseInt(limit));
     } else {
-      logs = getLogs(limit);
+      logs = getLogs();
     }
 
     return NextResponse.json({
-      logs,
-      count: logs.length,
-      timestamp: new Date().toISOString()
+      success: true,
+      logs
     });
   } catch (error: any) {
-    console.error('Error getting indexer logs:', error);
+    console.error('Error fetching indexer logs:', error);
     return NextResponse.json(
       {
-        error: 'Failed to get logs',
-        message: error?.message || 'Unknown error',
-        logs: []
+        error: 'Failed to fetch logs',
+        message: error?.message
       },
       { status: 500 }
     );

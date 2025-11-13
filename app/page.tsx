@@ -6,14 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { sdk } from '@farcaster/miniapp-sdk'
 import MyStatus from '@/components/leaderboard/MyStatus'
-import { useFarcasterContext } from '@/lib/hooks/useFarcasterContext'
 
 const FARCASTER_ELIGIBILITY_THRESHOLD = 1_000_000; // 1M for Farcaster miniapp users
 const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000; // 2M for website users
 
 export default function BadTradersLanding() {
-  console.log('[BadTraders] 🎯 BadTradersLanding component is rendering');
-
   const [copied, setCopied] = useState(false)
   const [walletAddress, setWalletAddress] = useState<string | null>(null)
   const [userFid, setUserFid] = useState<number | null>(null)
@@ -27,42 +24,8 @@ export default function BadTradersLanding() {
   const hasInitialized = useRef(false)
   const providerRef = useRef<any>(null)
   const walletAddressRef = useRef<string | null>(null)
-  const { isInFarcaster, isLoading: isLoadingFarcaster } = useFarcasterContext()
 
-  // Initialize Farcaster SDK and call ready - CRITICAL for dismissing splash screen
-  useEffect(() => {
-    console.log('[BadTraders] 🎯 useEffect for ready() is running');
-    const initializeSDK = async () => {
-      try {
-        console.log('[BadTraders] 🔄 Attempting to call sdk.actions.ready()...');
-        await sdk.actions.ready();
-        console.log('[BadTraders] ✅ Farcaster SDK ready() called successfully');
-
-        const context = sdk.context;
-        console.log('[BadTraders] 📱 Farcaster context:', context);
-
-        try {
-          await sdk.actions.addMiniApp();
-          console.log('[BadTraders] ✅ Add mini app modal triggered');
-        } catch (addError: any) {
-          console.log('[BadTraders] ℹ️ Add mini app status:', addError?.message || 'Already added or not available');
-        }
-      } catch (error: any) {
-        console.error('[BadTraders] ❌ SDK ready() error:', error);
-        try {
-          console.log('[BadTraders] 🔄 Retrying sdk.actions.ready()...');
-          await sdk.actions.ready();
-          console.log('[BadTraders] ✅ SDK ready() succeeded on retry');
-        } catch (retryError) {
-          console.error('[BadTraders] ❌ Retry also failed:', retryError);
-        }
-      }
-    };
-
-    initializeSDK();
-    const timer = setTimeout(initializeSDK, 500);
-    return () => clearTimeout(timer);
-  }, []);
+  // SDK initialization is now handled by FarcasterSDKInit component in layout
 
   const loadTokenBalance = useCallback(async (fid: number | null, address: string | null = null) => {
     setIsLoadingBalance(true)
@@ -183,15 +146,35 @@ export default function BadTradersLanding() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Empty deps - only run once on mount
 
-  // Listen for wallet account changes (website users only)
-  // ONLY run this if NOT in Farcaster and not still loading Farcaster context
-  // This is passive - only listens for changes, doesn't initiate connections
+  // Listen for wallet connections from WalletConnect (website users)
   useEffect(() => {
-    // Don't run wallet checks if in Farcaster or still loading
-    if (isLoadingFarcaster || isInFarcaster) return
     if (typeof window === 'undefined' || !window.ethereum) return
 
-    // Only listen for account changes - don't check or prompt automatically
+    const checkWalletConnection = async () => {
+      try {
+        const { ethers } = await import('ethers')
+        const provider = new ethers.BrowserProvider(window.ethereum)
+        const accounts = await provider.listAccounts()
+        if (accounts.length > 0) {
+          const address = accounts[0].address
+          // Only update if different or if we don't have one yet
+          if (!walletAddressRef.current || walletAddressRef.current.toLowerCase() !== address.toLowerCase()) {
+            walletAddressRef.current = address
+            setWalletAddress(address)
+            // Load balance for website user (no FID)
+            await loadTokenBalance(null, address)
+          }
+        }
+      } catch (error) {
+        // Wallet not connected or not available
+        console.log('Wallet check error:', error)
+      }
+    }
+
+    // Check immediately ONCE on mount (passive check - only reads existing connection)
+    checkWalletConnection()
+
+    // Listen for account changes (passive - only fires when user manually changes accounts)
     const handleAccountsChanged = async (accounts: string[]) => {
       if (accounts.length > 0) {
         const address = accounts[0]
@@ -208,57 +191,50 @@ export default function BadTradersLanding() {
 
     window.ethereum.on('accountsChanged', handleAccountsChanged)
 
+    // Listen for connect event (passive - only fires when wallet connects)
+    window.ethereum.on('connect', checkWalletConnection)
+
     return () => {
       window.ethereum?.removeListener('accountsChanged', handleAccountsChanged)
+      window.ethereum?.removeListener('connect', checkWalletConnection)
     }
-  }, [loadTokenBalance, isInFarcaster, isLoadingFarcaster]) // Add Farcaster context to deps
+  }, [loadTokenBalance]) // Remove walletAddress from deps to avoid loops
 
   const handleConnectWallet = useCallback(async () => {
     try {
-      // First try to get FID from context (Farcaster users)
+      // First try to get FID from context
       const context = await sdk.context
       if (context?.user?.fid) {
         const fid = context.user.fid
         setUserFid(fid)
         await loadTokenBalance(fid)
+      }
 
-        // Also get wallet address for display - reuse cached provider if available
-        const ethProvider = providerRef.current || await sdk.wallet.getEthereumProvider()
-        if (ethProvider) {
-          // Cache it for future use
-          if (!providerRef.current) {
-            providerRef.current = ethProvider
-          }
-          try {
-            const accounts = await ethProvider.request({ method: 'eth_requestAccounts' })
-            if (accounts && accounts[0]) {
-              setWalletAddress(accounts[0])
-            }
-          } catch (e) {
-            console.log('Could not get wallet address:', e)
-          }
+      // Also get wallet address for display - reuse cached provider if available
+      const ethProvider = providerRef.current || await sdk.wallet.getEthereumProvider()
+      if (ethProvider) {
+        // Cache it for future use
+        if (!providerRef.current) {
+          providerRef.current = ethProvider
         }
-        return
-      }
-
-      // For website users (not in Farcaster), use browser wallet
-      if (typeof window !== 'undefined' && window.ethereum) {
-        const { ethers } = await import('ethers')
-        const provider = new ethers.BrowserProvider(window.ethereum)
-        await provider.send('eth_requestAccounts', [])
-        const signer = await provider.getSigner()
-        const address = await signer.getAddress()
-        walletAddressRef.current = address
-        setWalletAddress(address)
-        await loadTokenBalance(null, address)
+        try {
+          const accounts = await ethProvider.request({ method: 'eth_requestAccounts' })
+          if (accounts && accounts[0]) {
+            setWalletAddress(accounts[0])
+            // If no FID available, fallback to address-based lookup
+            if (!context?.user?.fid) {
+              await loadTokenBalance(null, accounts[0])
+            }
+          }
+        } catch (e) {
+          console.log('Could not get wallet address:', e)
+        }
       } else {
-        alert('Please install a wallet extension like MetaMask or Phantom')
+        alert('Ethereum provider not available. Make sure you\'re using Farcaster client.')
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error connecting wallet:', err)
-      if (err.code !== 4001) { // User rejected
-        alert('Failed to connect wallet. Please try again.')
-      }
+      alert('Failed to connect wallet. Please try again.')
     }
   }, [loadTokenBalance])
 

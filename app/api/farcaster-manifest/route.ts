@@ -5,10 +5,10 @@ export async function GET(req: NextRequest) {
   const host = req.headers.get('host') || 'badtraders.xyz';
   const protocol = req.headers.get('x-forwarded-proto') || 'https';
   const baseUrl = `${protocol}://${host}`;
-  
+
   // Normalize domain - remove www for canonicalDomain but keep it in URLs
   const canonicalDomain = host.replace(/^www\./, '');
-  
+
   const manifest = {
     miniapp: {
       version: "1",
