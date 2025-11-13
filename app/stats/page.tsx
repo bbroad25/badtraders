@@ -955,6 +955,7 @@ export default function StatsPage() {
              </div>
                          )}
           </div>
+        </div>
 
           {mainTab === 'indexer-analytics' && error && (
             <Card className="bg-destructive/10 border-destructive border-2 p-4 mb-4">

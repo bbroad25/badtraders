@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
 
     // Extract user information
     const userFid = userData.fid;
-    const username = userData.username || '';
+    const userUsername = userData.username || '';
     const displayName = userData.display_name || userData.username || '';
     const pfpUrl = userData.pfp_url || '';
     const addresses = userData.verified_addresses?.eth_addresses || [];
@@ -191,14 +191,14 @@ export async function POST(request: NextRequest) {
        (fid, username, display_name, address, pfp_url, added_by_fid)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, added_at`,
-      [userFid, username, displayName, address, pfpUrl, fid]
+      [userFid, userUsername, displayName, address, pfpUrl, fid]
     );
 
     const entry = insertResult.rows[0];
 
     console.log('✅ Added user to loserboard:', {
       fid: userFid,
-      username,
+      username: userUsername,
       addedBy: fid
     });
 
@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               title: '🏆 New Loser Added!',
-              body: `@${username} has been added to the loserboard!`,
+              body: `@${userUsername} has been added to the loserboard!`,
               targetFid: userFid,
               url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://badtraders.xyz'}/leaderboard`
             })
@@ -246,7 +246,7 @@ export async function POST(request: NextRequest) {
       entry: {
         id: entry.id,
         fid: userFid,
-        username,
+        username: userUsername,
         displayName,
         address,
         pfpUrl,
