@@ -1264,8 +1264,6 @@ export default function StatsPage() {
             </Card>
           )}
 
-        </div>
-
         {/* Main Tabs: Contest Data vs Indexer Analytics */}
         <div className="mb-6">
           <div className="flex gap-2 border-b-2 border-primary pb-2">
