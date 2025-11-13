@@ -29,7 +29,7 @@ export default function Navigation() {
     { href: "/leaderboard", label: "LOSERBOARD" },
     { href: "/users", label: "REGISTERED USERS" },
     { href: "/coming-next", label: "COMING NEXT" },
-    { href: "/indexer", label: "INDEXER" },
+    { href: "/stats", label: "STATS" },
     ...(isAdmin ? [{ href: "/admin", label: "ADMIN" }] : []),
   ]
 

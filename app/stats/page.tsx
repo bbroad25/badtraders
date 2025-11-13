@@ -124,10 +124,16 @@ interface Token {
   updated_at: string
 }
 
-export default function IndexerPage() {
+type MainTabType = 'contest-data' | 'indexer-analytics'
+
+export default function StatsPage() {
   // Check if admin mode is enabled via environment variable
   const isAdminMode = process.env.NEXT_PUBLIC_ENABLE_ADMIN_MODE === 'true'
 
+  // Main tab: Contest Data or Indexer Analytics
+  const [mainTab, setMainTab] = useState<MainTabType>('contest-data')
+
+  // Indexer Analytics state (existing)
   const [stats, setStats] = useState<IndexerStats | null>(null)
   const [wallets, setWallets] = useState<Wallet[]>([])
   const [trades, setTrades] = useState<Trade[]>([])
@@ -840,15 +846,16 @@ export default function IndexerPage() {
         {/* Header */}
                  <div className="mb-8">
            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-             <div>
-               <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-primary uppercase mb-2">
-                 Indexer Analytics
-               </h1>
-               <p className="text-sm sm:text-lg text-muted-foreground">
-                 Real-time PnL tracking and trade analytics
-               </p>
-             </div>
-                         <div className="flex flex-wrap gap-2">
+            <div>
+              <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-primary uppercase mb-2">
+                Stats
+              </h1>
+              <p className="text-sm sm:text-lg text-muted-foreground">
+                Contest data and indexer analytics
+              </p>
+            </div>
+                         {mainTab === 'indexer-analytics' && (
+               <div className="flex flex-wrap gap-2">
                {/* Wallet Filter Toggle: Registered vs Full (UI Display Only) */}
                <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 bg-card border-2 border-primary rounded">
                  <span className={`text-xs sm:text-sm font-bold uppercase transition-colors ${displayFilter === 'registered' ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -946,16 +953,17 @@ export default function IndexerPage() {
                  <span className="sm:hidden">Ref</span>
                </Button>
              </div>
+                         )}
           </div>
 
-          {error && (
+          {mainTab === 'indexer-analytics' && error && (
             <Card className="bg-destructive/10 border-destructive border-2 p-4 mb-4">
               <p className="text-destructive font-bold">{error}</p>
             </Card>
           )}
 
           {/* Password Prompt Modal - Admin Only */}
-          {isAdminMode && showPasswordPrompt && (
+          {mainTab === 'indexer-analytics' && isAdminMode && showPasswordPrompt && (
             <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
               <Card className="bg-card border-2 border-primary p-6 max-w-md w-full">
                 <h3 className="text-xl font-bold uppercase mb-4">Sync Password Required</h3>
@@ -1014,7 +1022,7 @@ export default function IndexerPage() {
           )}
 
           {/* Sync Status Panel - Admin Only */}
-          {isAdminMode && indexerStatus && (
+          {mainTab === 'indexer-analytics' && isAdminMode && indexerStatus && (
             <Card className={`bg-card border-2 mb-4 ${indexerStatus.isRunning ? 'border-primary' : 'border-primary/50'}`}>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -1257,6 +1265,42 @@ export default function IndexerPage() {
 
         </div>
 
+        {/* Main Tabs: Contest Data vs Indexer Analytics */}
+        <div className="mb-6">
+          <div className="flex gap-2 border-b-2 border-primary pb-2">
+            <Button
+              onClick={() => setMainTab('contest-data')}
+              variant={mainTab === 'contest-data' ? 'default' : 'ghost'}
+              className={`font-bold uppercase rounded-none border-b-2 border-transparent ${
+                mainTab === 'contest-data'
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'hover:bg-secondary/50'
+              }`}
+            >
+              Contest Data
+            </Button>
+            <Button
+              onClick={() => setMainTab('indexer-analytics')}
+              variant={mainTab === 'indexer-analytics' ? 'default' : 'ghost'}
+              className={`font-bold uppercase rounded-none border-b-2 border-transparent ${
+                mainTab === 'indexer-analytics'
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'hover:bg-secondary/50'
+              }`}
+            >
+              Indexer Analytics
+            </Button>
+          </div>
+        </div>
+
+        {/* Contest Data Tab */}
+        {mainTab === 'contest-data' && (
+          <ContestDataTab />
+        )}
+
+        {/* Indexer Analytics Tab */}
+        {mainTab === 'indexer-analytics' && (
+          <>
         {/* Stats Cards */}
         {stats ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -1841,6 +1885,416 @@ export default function IndexerPage() {
           </Link>
         </div>
       </div>
+    </div>
+  )
+}
+
+// Contest Data Tab Component
+function ContestDataTab() {
+  const [registrations, setRegistrations] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [expandedRegistration, setExpandedRegistration] = useState<number | null>(null)
+
+  useEffect(() => {
+    fetchContestData()
+  }, [])
+
+  const fetchContestData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const response = await fetch('/api/stats/contest-data')
+      if (!response.ok) {
+        throw new Error('Failed to fetch contest data')
+      }
+      const data = await response.json()
+      setRegistrations(data.registrations || [])
+    } catch (err: any) {
+      console.error('Error fetching contest data:', err)
+      setError(err.message || 'Failed to load contest data')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`
+  }
+
+  const formatNumber = (num: number | string, decimals: number = 2) => {
+    const n = typeof num === 'string' ? parseFloat(num) : num
+    if (isNaN(n)) return '0.00'
+    return n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString()
+  }
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-12">
+        <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4" />
+        <p className="text-xl text-muted-foreground uppercase">Loading contest data...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card className="bg-destructive/10 border-destructive border-2 p-6">
+        <p className="text-destructive font-bold">Error: {error}</p>
+        <Button onClick={fetchContestData} className="mt-4">
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Retry
+        </Button>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-card border-2 border-primary">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground uppercase">Total Registrations</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{registrations.length}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-2 border-primary">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground uppercase">Indexed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-green-500">
+              {registrations.filter((r: any) => r.indexed_at).length}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-2 border-primary">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground uppercase">Pending</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-yellow-500">
+              {registrations.filter((r: any) => !r.indexed_at).length}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Info Card */}
+      <Card className="bg-primary/5 border-2 border-primary p-4">
+        <p className="text-sm text-muted-foreground">
+          <strong>How it works:</strong> This data comes from the user-generated indexing system (not BitQuery).
+          When users register for contests, they sign a message and we index their wallet using Alchemy API.
+          The service is <code className="bg-background px-1 rounded">userIndexerService.ts</code> which uses
+          Alchemy's <code className="bg-background px-1 rounded">eth_getLogs</code> to fetch swap events.
+        </p>
+      </Card>
+
+      {/* Registrations List */}
+      <Card className="bg-card border-2 border-primary">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xl uppercase">Contest Registrations</CardTitle>
+            <Button onClick={fetchContestData} variant="outline" size="sm">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {registrations.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No contest registrations found</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {registrations.map((reg: any) => (
+                <div
+                  key={reg.id}
+                  className="border-2 border-primary rounded p-4 bg-secondary/50"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-bold text-lg">
+                          Registration #{reg.id}
+                        </h3>
+                        {reg.indexed_at ? (
+                          <span className="px-2 py-1 bg-green-500/20 text-green-500 text-xs font-bold rounded">
+                            ✓ Indexed
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-yellow-500/20 text-yellow-500 text-xs font-bold rounded">
+                            ⏳ Pending
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Wallet:</span>
+                          <p className="font-mono">{formatAddress(reg.wallet_address)}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">FID:</span>
+                          <p>{reg.fid || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Token:</span>
+                          <p className="font-mono text-xs">{formatAddress(reg.token_address)}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Trades:</span>
+                          <p className="font-bold">{reg.tradeCount || 0}</p>
+                        </div>
+                      </div>
+                      {reg.current_pnl !== null && (
+                        <div className="mt-2">
+                          <span className="text-muted-foreground">Current PnL (DB):</span>
+                          <span className={`ml-2 font-bold text-lg ${
+                            parseFloat(reg.current_pnl || '0') >= 0 ? 'text-green-500' : 'text-red-500'
+                          }`}>
+                            ${formatNumber(reg.current_pnl)}
+                          </span>
+                        </div>
+                      )}
+                      {reg.calculatedPnL && (
+                        <div className="mt-2 p-2 bg-background/50 rounded border border-primary/30">
+                          <p className="text-xs font-bold uppercase text-muted-foreground mb-1">Calculated PnL:</p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">Position:</span>
+                              <p className="font-mono">{formatNumber(reg.calculatedPnL.position, 6)}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Cost Basis:</span>
+                              <p className="font-mono">${formatNumber(reg.calculatedPnL.costBasis)}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Avg Cost:</span>
+                              <p className="font-mono">${formatNumber(reg.calculatedPnL.avgCostPerToken)}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Realized PnL:</span>
+                              <p className={`font-bold ${
+                                reg.calculatedPnL.realizedPnL >= 0 ? 'text-green-500' : 'text-red-500'
+                              }`}>
+                                ${formatNumber(reg.calculatedPnL.realizedPnL)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setExpandedRegistration(
+                        expandedRegistration === reg.id ? null : reg.id
+                      )}
+                    >
+                      {expandedRegistration === reg.id ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Expanded Details */}
+                  {expandedRegistration === reg.id && (
+                    <div className="mt-4 pt-4 border-t border-primary">
+                      <div className="space-y-4">
+                        {/* Contest Info */}
+                        <div>
+                          <h4 className="font-bold uppercase text-sm mb-2">Contest Info</h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">Contest ID:</span>
+                              <p>{reg.contest_id}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Token Symbol:</span>
+                              <p>{reg.token_symbol || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Start:</span>
+                              <p className="text-xs">{formatDate(reg.start_date)}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">End:</span>
+                              <p className="text-xs">{formatDate(reg.end_date)}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Registration Info */}
+                        <div>
+                          <h4 className="font-bold uppercase text-sm mb-2">Registration Info</h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">Created:</span>
+                              <p className="text-xs">{formatDate(reg.created_at)}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Indexed:</span>
+                              <p className="text-xs">{reg.indexed_at ? formatDate(reg.indexed_at) : 'Not indexed'}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">PnL Calculated:</span>
+                              <p className="text-xs">{reg.pnl_calculated_at ? formatDate(reg.pnl_calculated_at) : 'Not calculated'}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Status:</span>
+                              <p>{reg.contest_status}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Trades Table */}
+                        {reg.trades && reg.trades.length > 0 && (
+                          <div>
+                            <h4 className="font-bold uppercase text-sm mb-2">Trades ({reg.trades.length})</h4>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b border-primary">
+                                    <th className="text-left p-2">TX Hash</th>
+                                    <th className="text-left p-2">Time</th>
+                                    <th className="text-left p-2">Type</th>
+                                    <th className="text-right p-2">Amount In</th>
+                                    <th className="text-right p-2">Amount Out</th>
+                                    <th className="text-right p-2">Price USD</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {reg.trades.map((trade: any, idx: number) => (
+                                    <tr key={trade.id} className="border-b border-primary/20">
+                                      <td className="p-2 font-mono">
+                                        <a
+                                          href={`https://basescan.org/tx/${trade.tx_hash}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-primary hover:underline"
+                                        >
+                                          {trade.tx_hash.slice(0, 10)}...
+                                          <ExternalLink className="w-3 h-3 inline ml-1" />
+                                        </a>
+                                      </td>
+                                      <td className="p-2">{formatDate(trade.timestamp)}</td>
+                                      <td className="p-2">
+                                        <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                          trade.trade_type === 'buy'
+                                            ? 'bg-green-500/20 text-green-500'
+                                            : 'bg-red-500/20 text-red-500'
+                                        }`}>
+                                          {trade.trade_type.toUpperCase()}
+                                        </span>
+                                      </td>
+                                      <td className="p-2 text-right font-mono">
+                                        {formatNumber(parseFloat(trade.amount_in || '0'), 6)}
+                                      </td>
+                                      <td className="p-2 text-right font-mono">
+                                        {formatNumber(parseFloat(trade.amount_out || '0'), 6)}
+                                      </td>
+                                      <td className="p-2 text-right font-mono">
+                                        ${formatNumber(trade.price_usd || '0')}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Trade Calculations (if available) */}
+                        {reg.tradeCalculations && reg.tradeCalculations.length > 0 && (
+                          <div>
+                            <h4 className="font-bold uppercase text-sm mb-2">PnL Calculations (Step by Step)</h4>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b border-primary">
+                                    <th className="text-left p-2">TX</th>
+                                    <th className="text-left p-2">Type</th>
+                                    <th className="text-right p-2">Before Position</th>
+                                    <th className="text-right p-2">Before Cost Basis</th>
+                                    <th className="text-right p-2">Trade Amount</th>
+                                    <th className="text-right p-2">Trade Cost/Value</th>
+                                    <th className="text-right p-2">After Position</th>
+                                    <th className="text-right p-2">After Cost Basis</th>
+                                    <th className="text-right p-2">Avg Cost</th>
+                                    <th className="text-right p-2">Realized PnL</th>
+                                    <th className="text-left p-2">Note</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {reg.tradeCalculations.map((calc: any, idx: number) => (
+                                    <tr key={idx} className="border-b border-primary/20">
+                                      <td className="p-2 font-mono text-xs">
+                                        {calc.tx_hash.slice(0, 8)}...
+                                      </td>
+                                      <td className="p-2">
+                                        <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                          calc.trade_type === 'buy'
+                                            ? 'bg-green-500/20 text-green-500'
+                                            : 'bg-red-500/20 text-red-500'
+                                        }`}>
+                                          {calc.trade_type.toUpperCase()}
+                                        </span>
+                                      </td>
+                                      <td className="p-2 text-right font-mono">
+                                        {formatNumber(calc.calculation.beforePosition || 0, 6)}
+                                      </td>
+                                      <td className="p-2 text-right font-mono">
+                                        ${formatNumber(calc.calculation.beforeCostBasis || 0)}
+                                      </td>
+                                      <td className="p-2 text-right font-mono">
+                                        {formatNumber(calc.calculation.tradeAmount || 0, 6)}
+                                      </td>
+                                      <td className="p-2 text-right font-mono">
+                                        ${formatNumber(calc.calculation.tradeCost || calc.calculation.tradeValue || 0)}
+                                      </td>
+                                      <td className="p-2 text-right font-mono">
+                                        {formatNumber(calc.calculation.afterPosition || 0, 6)}
+                                      </td>
+                                      <td className="p-2 text-right font-mono">
+                                        ${formatNumber(calc.calculation.afterCostBasis || 0)}
+                                      </td>
+                                      <td className="p-2 text-right font-mono">
+                                        ${formatNumber(calc.calculation.avgCostPerToken || 0)}
+                                      </td>
+                                      <td className={`p-2 text-right font-mono font-bold ${
+                                        (calc.calculation.tradePnL || 0) >= 0 ? 'text-green-500' : 'text-red-500'
+                                      }`}>
+                                        ${formatNumber(calc.calculation.tradePnL || calc.calculation.realizedPnL || 0)}
+                                      </td>
+                                      <td className="p-2 text-xs text-muted-foreground">
+                                        {calc.calculation.note}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
