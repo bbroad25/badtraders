@@ -10,24 +10,8 @@ import { useFarcasterContext } from "@/lib/hooks/useFarcasterContext"
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess"
 
 // DO NOT import WalletConnect at all when in Farcaster
-// Create dynamic import at module level but wrap in component that checks context
-const WalletConnectLazy = dynamic(
-  () => import("@/components/WalletConnect"),
-  { ssr: false }
-)
-
-// Wrapper component that prevents WalletConnect from rendering in Farcaster
-function ConditionalWalletConnect() {
-  const { isInFarcaster, isLoading } = useFarcasterContext()
-  
-  // Never render WalletConnect in Farcaster - return null immediately
-  // This prevents the component from mounting and executing any code
-  if (isLoading || isInFarcaster) {
-    return null
-  }
-  
-  return <WalletConnectLazy />
-}
+// Import a wrapper component that handles the conditional loading
+import WalletConnectWrapper from '@/components/WalletConnectWrapper'
 
 export default function Navigation() {
   const pathname = usePathname()
@@ -124,7 +108,7 @@ export default function Navigation() {
             {/* Wallet Connect - Desktop - Only show when NOT in Farcaster miniapp */}
             {!isLoadingFarcaster && !isInFarcaster && (
               <div className="hidden md:flex items-center ml-2">
-                <ConditionalWalletConnect />
+                <WalletConnectWrapper />
               </div>
             )}
             {/* Show nothing in Farcaster - don't even load the component */}
@@ -207,7 +191,7 @@ export default function Navigation() {
             {/* Wallet Connect - Mobile - Only show when NOT in Farcaster miniapp */}
             {!isLoadingFarcaster && !isInFarcaster && (
               <div className="flex justify-center py-2 border-t-2 border-primary mt-2">
-                <ConditionalWalletConnect />
+                <WalletConnectWrapper />
               </div>
             )}
             {/* Show nothing in Farcaster - don't even load the component */}
