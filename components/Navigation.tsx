@@ -9,23 +9,23 @@ import { Twitter, Github } from "lucide-react"
 import { useFarcasterContext } from "@/lib/hooks/useFarcasterContext"
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess"
 
-// DO NOT import WalletConnect at all - it will never be used in Farcaster miniapp
-// Create a component that conditionally loads it
+// DO NOT import WalletConnect at all when in Farcaster
+// Create dynamic import at module level but wrap in component that checks context
 const WalletConnectLazy = dynamic(
   () => import("@/components/WalletConnect"),
   { ssr: false }
 )
 
-// Wrapper that checks Farcaster context before rendering
+// Wrapper component that prevents WalletConnect from rendering in Farcaster
 function ConditionalWalletConnect() {
   const { isInFarcaster, isLoading } = useFarcasterContext()
   
-  // Never load WalletConnect in Farcaster - return null immediately
+  // Never render WalletConnect in Farcaster - return null immediately
+  // This prevents the component from mounting and executing any code
   if (isLoading || isInFarcaster) {
     return null
   }
   
-  // Only render when we're sure we're NOT in Farcaster
   return <WalletConnectLazy />
 }
 

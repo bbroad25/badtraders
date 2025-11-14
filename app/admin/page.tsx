@@ -445,7 +445,8 @@ Try it: ${miniappUrl}`)
       setCastEmbeds(`${appUrl}/leaderboard`)
       setCastParentUrl("")
     }
-  }, [selectedCastType, setCastText, setCastEmbeds, setCastParentUrl]) // Include all dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCastType]) // setState functions are stable, window.location.origin is constant per session
 
   const handleComposeCast = async () => {
     if (!castText.trim()) {
