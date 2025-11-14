@@ -9,10 +9,14 @@ import { Twitter, Github } from "lucide-react"
 import { useFarcasterContext } from "@/lib/hooks/useFarcasterContext"
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess"
 
-// Dynamically import WalletConnect only when not in Farcaster to prevent initialization
-const WalletConnect = dynamic(
-  () => import("@/components/WalletConnect"),
-  { ssr: false }
+// Conditionally import WalletConnect - only load when not in Farcaster
+// Create a wrapper component that handles the conditional loading
+const WalletConnectWrapper = dynamic(
+  () => import("@/components/WalletConnect").catch(() => ({ default: () => null })),
+  { 
+    ssr: false,
+    loading: () => null
+  }
 )
 
 export default function Navigation() {
@@ -110,7 +114,7 @@ export default function Navigation() {
             {/* Wallet Connect - Desktop - Only show when NOT in Farcaster miniapp */}
             {!isLoadingFarcaster && !isInFarcaster && (
               <div className="hidden md:flex items-center ml-2">
-                <WalletConnect />
+                <WalletConnectWrapper />
               </div>
             )}
             {/* Show nothing in Farcaster - don't even load the component */}
@@ -193,7 +197,7 @@ export default function Navigation() {
             {/* Wallet Connect - Mobile - Only show when NOT in Farcaster miniapp */}
             {!isLoadingFarcaster && !isInFarcaster && (
               <div className="flex justify-center py-2 border-t-2 border-primary mt-2">
-                <WalletConnect />
+                <WalletConnectWrapper />
               </div>
             )}
             {/* Show nothing in Farcaster - don't even load the component */}

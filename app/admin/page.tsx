@@ -444,7 +444,8 @@ Try it: ${miniappUrl}`)
       setCastEmbeds(`${appUrl}/leaderboard`)
       setCastParentUrl("")
     }
-  }, [selectedCastType])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCastType]) // setState functions are stable and don't need to be in deps
 
   const handleComposeCast = async () => {
     if (!castText.trim()) {
