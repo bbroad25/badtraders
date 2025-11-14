@@ -9,15 +9,25 @@ import { Twitter, Github } from "lucide-react"
 import { useFarcasterContext } from "@/lib/hooks/useFarcasterContext"
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess"
 
-// Conditionally import WalletConnect - only load when not in Farcaster
-// Create a wrapper component that handles the conditional loading
-const WalletConnectWrapper = dynamic(
-  () => import("@/components/WalletConnect").catch(() => ({ default: () => null })),
-  { 
-    ssr: false,
-    loading: () => null
-  }
+// DO NOT import WalletConnect at all - it will never be used in Farcaster miniapp
+// Create a component that conditionally loads it
+const WalletConnectLazy = dynamic(
+  () => import("@/components/WalletConnect"),
+  { ssr: false }
 )
+
+// Wrapper that checks Farcaster context before rendering
+function ConditionalWalletConnect() {
+  const { isInFarcaster, isLoading } = useFarcasterContext()
+  
+  // Never load WalletConnect in Farcaster - return null immediately
+  if (isLoading || isInFarcaster) {
+    return null
+  }
+  
+  // Only render when we're sure we're NOT in Farcaster
+  return <WalletConnectLazy />
+}
 
 export default function Navigation() {
   const pathname = usePathname()
@@ -114,7 +124,7 @@ export default function Navigation() {
             {/* Wallet Connect - Desktop - Only show when NOT in Farcaster miniapp */}
             {!isLoadingFarcaster && !isInFarcaster && (
               <div className="hidden md:flex items-center ml-2">
-                <WalletConnectWrapper />
+                <ConditionalWalletConnect />
               </div>
             )}
             {/* Show nothing in Farcaster - don't even load the component */}
@@ -197,7 +207,7 @@ export default function Navigation() {
             {/* Wallet Connect - Mobile - Only show when NOT in Farcaster miniapp */}
             {!isLoadingFarcaster && !isInFarcaster && (
               <div className="flex justify-center py-2 border-t-2 border-primary mt-2">
-                <WalletConnectWrapper />
+                <ConditionalWalletConnect />
               </div>
             )}
             {/* Show nothing in Farcaster - don't even load the component */}

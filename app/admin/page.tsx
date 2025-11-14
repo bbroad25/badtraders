@@ -427,8 +427,10 @@ export default function AdminPage() {
 
   // Initialize cast text based on selected type
   useEffect(() => {
+    const miniappUrl = typeof window !== 'undefined' ? window.location.origin : 'https://badtraders.xyz'
+    const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://badtraders.xyz'
+    
     if (selectedCastType === "registration") {
-      const miniappUrl = typeof window !== 'undefined' ? window.location.origin : 'https://badtraders.xyz'
       setCastText(`Just signed up for the $BADTRADERS competition! 🎯
 
 The worst trader wins a share of trading fees. You need 10M+ tokens to compete.
@@ -437,15 +439,13 @@ Try it: ${miniappUrl}`)
       setCastEmbeds(miniappUrl)
       setCastParentUrl("")
     } else if (selectedCastType === "loserboard") {
-      const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://badtraders.xyz'
       setCastText(`🏆 New loser added to the $BADTRADERS loserboard!
 
 @username has been officially declared a loser. Check out the full loserboard!`)
       setCastEmbeds(`${appUrl}/leaderboard`)
       setCastParentUrl("")
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCastType]) // setState functions are stable and don't need to be in deps
+  }, [selectedCastType, setCastText, setCastEmbeds, setCastParentUrl]) // Include all dependencies
 
   const handleComposeCast = async () => {
     if (!castText.trim()) {
