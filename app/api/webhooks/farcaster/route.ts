@@ -23,50 +23,75 @@ import { parseWebhookEvent, verifyAppKeyWithNeynar } from '@farcaster/miniapp-no
  */
 export async function POST(request: NextRequest) {
   try {
-    // Webhook events are signed JSON Farcaster Signatures
     const body = await request.json();
 
     console.log('📬 Farcaster notification webhook received:', {
       hasHeader: !!body.header,
       hasPayload: !!body.payload,
-      hasSignature: !!body.signature
+      hasSignature: !!body.signature,
+      hasEvent: !!body.event,
+      hasFid: !!body.fid,
+      bodyKeys: Object.keys(body),
+      bodySample: JSON.stringify(body).substring(0, 500) // Log first 500 chars for debugging
     });
 
-    // Parse and verify the webhook signature
-    // According to Farcaster docs, parseWebhookEvent requires a verification function
-    let verifiedEvent;
-    try {
-      verifiedEvent = await parseWebhookEvent(body, verifyAppKeyWithNeynar);
-      console.log('✅ Webhook signature verified:', {
+    let verifiedEvent: any;
+
+    // Check if this is Neynar's forwarded format (already parsed) or Farcaster's signature format
+    if (body.header && body.payload && body.signature) {
+      // Farcaster signature format - needs parsing
+      console.log('📝 Detected Farcaster signature format, parsing...');
+      try {
+        verifiedEvent = await parseWebhookEvent(body, verifyAppKeyWithNeynar);
+        console.log('✅ Webhook signature verified:', {
+          fid: verifiedEvent.fid,
+          event: verifiedEvent.event
+        });
+      } catch (verifyError: any) {
+        console.error('❌ Webhook signature verification failed:', verifyError);
+
+        // Handle specific error types per Farcaster docs
+        if (verifyError.name === 'VerifyJsonFarcasterSignature.InvalidDataError' ||
+            verifyError.name === 'VerifyJsonFarcasterSignature.InvalidEventDataError') {
+          return NextResponse.json(
+            { error: 'Invalid webhook data', details: verifyError.message },
+            { status: 400 }
+          );
+        } else if (verifyError.name === 'VerifyJsonFarcasterSignature.InvalidAppKeyError') {
+          return NextResponse.json(
+            { error: 'Invalid app key', details: verifyError.message },
+            { status: 401 }
+          );
+        } else if (verifyError.name === 'VerifyJsonFarcasterSignature.VerifyAppKeyError') {
+          return NextResponse.json(
+            { error: 'Verification service error', details: verifyError.message },
+            { status: 500 }
+          );
+        }
+
+        return NextResponse.json(
+          { error: 'Invalid webhook signature', details: verifyError.message },
+          { status: 401 }
+        );
+      }
+    } else if (body.event && body.fid !== undefined) {
+      // Neynar forwarded format - already parsed, just use it directly
+      console.log('📝 Detected Neynar forwarded format, using directly');
+      verifiedEvent = {
+        event: body.event,
+        fid: body.fid,
+        notificationDetails: body.notificationDetails
+      };
+      console.log('✅ Using Neynar forwarded event:', {
         fid: verifiedEvent.fid,
         event: verifiedEvent.event
       });
-    } catch (verifyError: any) {
-      console.error('❌ Webhook signature verification failed:', verifyError);
-
-      // Handle specific error types per Farcaster docs
-      if (verifyError.name === 'VerifyJsonFarcasterSignature.InvalidDataError' ||
-          verifyError.name === 'VerifyJsonFarcasterSignature.InvalidEventDataError') {
-        return NextResponse.json(
-          { error: 'Invalid webhook data', details: verifyError.message },
-          { status: 400 }
-        );
-      } else if (verifyError.name === 'VerifyJsonFarcasterSignature.InvalidAppKeyError') {
-        return NextResponse.json(
-          { error: 'Invalid app key', details: verifyError.message },
-          { status: 401 }
-        );
-      } else if (verifyError.name === 'VerifyJsonFarcasterSignature.VerifyAppKeyError') {
-        // Internal error - caller may want to try again
-        return NextResponse.json(
-          { error: 'Verification service error', details: verifyError.message },
-          { status: 500 }
-        );
-      }
-
+    } else {
+      // Unknown format
+      console.error('❌ Unknown webhook format:', body);
       return NextResponse.json(
-        { error: 'Invalid webhook signature', details: verifyError.message },
-        { status: 401 }
+        { error: 'Unknown webhook format. Expected Farcaster signature or Neynar forwarded format.' },
+        { status: 400 }
       );
     }
 
