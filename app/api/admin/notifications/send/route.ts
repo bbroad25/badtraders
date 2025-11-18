@@ -19,13 +19,22 @@ const ADMIN_FIDS = [474867, 7212];
  * }
  */
 export async function POST(request: NextRequest) {
+  console.log('📬 Admin notification send endpoint called');
   try {
     const body = await request.json();
     const { title, body: bodyText, targetFid, url } = body;
 
+    console.log('📬 Admin notification request:', {
+      hasTitle: !!title,
+      hasBody: !!bodyText,
+      targetFid,
+      url
+    });
+
     // Get FID from query param (passed from client)
     const fidParam = request.nextUrl.searchParams.get('fid');
     if (!fidParam) {
+      console.error('❌ No FID in query params');
       return NextResponse.json(
         { error: 'FID is required. Pass ?fid=123 in the query string.' },
         { status: 400 }
@@ -34,6 +43,7 @@ export async function POST(request: NextRequest) {
 
     const fid = parseInt(fidParam, 10);
     if (isNaN(fid)) {
+      console.error('❌ Invalid FID:', fidParam);
       return NextResponse.json(
         { error: 'Invalid FID' },
         { status: 400 }
@@ -42,6 +52,7 @@ export async function POST(request: NextRequest) {
 
     // Check admin access
     if (!ADMIN_FIDS.includes(fid)) {
+      console.error('❌ Admin access denied for FID:', fid);
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }
@@ -50,13 +61,21 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!title || !bodyText) {
+      console.error('❌ Missing required fields:', { hasTitle: !!title, hasBody: !!bodyText });
       return NextResponse.json(
         { error: 'title and body are required' },
         { status: 400 }
       );
     }
 
-    // No API key needed - we use stored tokens directly
+    // Check if Neynar API key is configured
+    if (!process.env.NEYNAR_API_KEY) {
+      console.error('❌ NEYNAR_API_KEY environment variable is missing');
+      return NextResponse.json(
+        { error: 'NEYNAR_API_KEY not configured. Please set it in Vercel environment variables.' },
+        { status: 500 }
+      );
+    }
 
     // Determine target FIDs
     const targetFids = targetFid ? [targetFid] : [];
@@ -64,15 +83,25 @@ export async function POST(request: NextRequest) {
     // Determine target URL
     const targetUrl = url || process.env.NEXT_PUBLIC_APP_URL || 'https://badtraders.xyz';
 
-    // Send notification using stored Farcaster tokens
+    console.log('🚀 Sending notification via Neynar:', {
+      targetFids: targetFids.length === 0 ? 'ALL_USERS' : targetFids,
+      title,
+      body: bodyText.substring(0, 50) + '...',
+      targetUrl
+    });
+
+    // Send notification using Neynar API
     try {
       await sendNotification(targetFids, title, bodyText, targetUrl);
+      console.log('✅ Notification sent successfully');
     } catch (notificationError: any) {
       // Extract detailed error information
       const errorDetails = notificationError?.message || 'Unknown error';
       console.error('❌ Notification sending error:', {
         message: notificationError?.message,
-        stack: notificationError?.stack
+        stack: notificationError?.stack,
+        response: notificationError?.response?.data,
+        status: notificationError?.response?.status
       });
 
       return NextResponse.json(
@@ -88,11 +117,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Notification sent successfully',
-      method: 'Farcaster Notification API (stored tokens)',
+      method: 'Neynar API',
       targetFids: targetFids.length === 0 ? 'ALL_USERS' : targetFids
     });
   } catch (error: any) {
-    console.error('❌ Admin notification API error:', error);
+    console.error('❌ Admin notification API error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     return NextResponse.json(
       {
         error: error.message || 'Failed to send notification',

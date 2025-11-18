@@ -55,7 +55,14 @@ export async function sendNotification(
 
     console.log(`✅ Notification sent successfully via Neynar`);
   } catch (error: any) {
-    console.error('❌ Failed to send notifications via Neynar:', error);
+    console.error('❌ Failed to send notifications via Neynar:', {
+      message: error.message,
+      stack: error.stack,
+      response: error.response?.data,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      headers: error.response?.headers
+    });
     throw error;
   }
 }
