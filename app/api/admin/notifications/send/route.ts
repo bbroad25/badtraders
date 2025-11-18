@@ -20,6 +20,10 @@ const ADMIN_FIDS = [474867, 7212];
  */
 export async function POST(request: NextRequest) {
   console.log('📬 Admin notification send endpoint called');
+  console.log('📬 Request URL:', request.url);
+  console.log('📬 Request method:', request.method);
+  console.log('📬 Request headers:', Object.fromEntries(request.headers.entries()));
+
   try {
     const body = await request.json();
     const { title, body: bodyText, targetFid, url } = body;

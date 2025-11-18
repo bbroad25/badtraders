@@ -100,19 +100,23 @@ export default function AdminPage() {
   }, [isAdmin])
 
   const handleSendNotification = async () => {
+    console.log('🚀 handleSendNotification called')
     setNotificationMessage(null)
 
     if (!currentFid) {
+      console.error('❌ No currentFid')
       setNotificationMessage({ type: "error", text: "Unable to get your FID. Please ensure you're logged in via Farcaster." })
       return
     }
 
     if (!notificationTitle.trim() || !notificationBody.trim()) {
+      console.error('❌ Missing title or body:', { hasTitle: !!notificationTitle, hasBody: !!notificationBody })
       setNotificationMessage({ type: "error", text: "Please fill in both title and body" })
       return
     }
 
     if (notificationTarget === "specific" && !notificationTargetFid.trim()) {
+      console.error('❌ Missing targetFid for specific target')
       setNotificationMessage({ type: "error", text: "Please enter a target FID" })
       return
     }
@@ -120,6 +124,15 @@ export default function AdminPage() {
     setIsSendingNotification(true)
     try {
       const targetFid = notificationTarget === "specific" ? parseInt(notificationTargetFid.trim(), 10) : undefined
+
+      console.log('📤 Sending notification request:', {
+        url: `/api/admin/notifications/send?fid=${currentFid}`,
+        method: 'POST',
+        title: notificationTitle,
+        body: notificationBody.substring(0, 50) + '...',
+        targetFid,
+        currentFid
+      })
 
       const response = await fetch(
         `/api/admin/notifications/send?fid=${currentFid}`,
@@ -134,6 +147,12 @@ export default function AdminPage() {
           })
         }
       )
+
+      console.log('📥 Received response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      })
 
       // Try to parse JSON, but handle non-JSON responses
       let data: any;
@@ -167,7 +186,12 @@ export default function AdminPage() {
         });
       }
     } catch (error: any) {
-      console.error("Error sending notification:", error)
+      console.error("❌ Error sending notification:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        error: error
+      })
       const errorMessage = error.message || error.toString() || "Failed to send notification";
       setNotificationMessage({ type: "error", text: `Error: ${errorMessage}` })
     } finally {
