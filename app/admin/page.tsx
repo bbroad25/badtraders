@@ -157,9 +157,12 @@ export default function AdminPage() {
       // Try to parse JSON, but handle non-JSON responses
       let data: any;
       const responseText = await response.text();
+      console.log('📥 Response text:', responseText.substring(0, 500));
       try {
         data = JSON.parse(responseText);
+        console.log('📥 Parsed response data:', data);
       } catch (parseError) {
+        console.error('❌ Failed to parse JSON response:', parseError);
         // If response isn't JSON, show the raw text
         throw new Error(`Server error (${response.status}): ${responseText.substring(0, 200)}`);
       }

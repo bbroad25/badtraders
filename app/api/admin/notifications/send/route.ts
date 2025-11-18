@@ -128,12 +128,19 @@ export async function POST(request: NextRequest) {
     console.error('❌ Admin notification API error:', {
       message: error.message,
       stack: error.stack,
-      name: error.name
+      name: error.name,
+      error: error
     });
+
+    // Make sure error details are in the response
+    const errorMessage = error.message || 'Failed to send notification';
+    const errorDetails = error.response?.data || error.stack || 'No additional details available';
+
     return NextResponse.json(
       {
-        error: error.message || 'Failed to send notification',
-        details: error.stack || 'No additional details available'
+        error: errorMessage,
+        details: errorDetails,
+        message: errorMessage // Include message field for frontend
       },
       { status: 500 }
     );
