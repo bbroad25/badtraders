@@ -22,9 +22,12 @@ export async function GET(req: NextRequest) {
       tagline: "We trade bad but we fun good",
       description: "Track the biggest weekly losses. The BadTrader competition leaderboard.",
       primaryCategory: "social",
-      // Webhook URL must point to YOUR server endpoint, not Neynar's
-      // Farcaster clients will POST events to this endpoint
-      webhookUrl: `${baseUrl}/api/webhooks/farcaster`,
+      // Webhook URL must point to Neynar's webhook proxy
+      // Format: https://api.neynar.com/f/app/{NEYNAR_CLIENT_ID}/event
+      // Neynar will forward events to your configured webhook endpoint
+      webhookUrl: process.env.NEYNAR_CLIENT_ID
+        ? `https://api.neynar.com/f/app/${process.env.NEYNAR_CLIENT_ID}/event`
+        : `${baseUrl}/api/webhooks/farcaster`, // Fallback if client ID not set
     },
     accountAssociation: {
       header: "eyJmaWQiOjcyMTIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhBODU1ZmFFNEZmY0M1OUM3N0M3NkRjZmEzYUJmREY3NEEyMzQ0YTE4In0",

@@ -14,13 +14,13 @@ const WalletConnectLazy = dynamic(
 // It checks context first and returns null, preventing the lazy component from loading
 export default function WalletConnectWrapper() {
   const { isInFarcaster, isLoading } = useFarcasterContext()
-  
+
   // Return null immediately if in Farcaster - this prevents the lazy component from mounting
   // Even though the module is bundled, the component code won't execute
   if (isLoading || isInFarcaster) {
     return null
   }
-  
+
   return <WalletConnectLazy />
 }
 
