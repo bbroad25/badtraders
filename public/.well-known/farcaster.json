@@ -11,7 +11,7 @@
     "tagline": "We trade bad but we fun good",
     "description": "Track the biggest weekly losses. The BadTrader competition leaderboard.",
     "primaryCategory": "social",
-    "webhookUrl": "https://badtraders.xyz/api/webhooks/farcaster"
+    "webhookUrl": "https://api.neynar.com/f/app/YOUR_CLIENT_ID_HERE/event"
   },
   "accountAssociation": {
     "header": "eyJmaWQiOjcyMTIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhBODU1ZmFFNEZmY0M1OUM3N0M3NkRjZmEzYUJmREY3NEEyMzQ0YTE4In0",
