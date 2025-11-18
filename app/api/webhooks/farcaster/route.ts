@@ -23,16 +23,32 @@ import { parseWebhookEvent, verifyAppKeyWithNeynar } from '@farcaster/miniapp-no
  */
 export async function POST(request: NextRequest) {
   try {
+    // Get headers for signature verification
+    const headers = request.headers;
+    const neynarSignature = headers.get('x-neynar-signature');
+    const contentType = headers.get('content-type');
+
+    // Get body first (can only be read once)
     const body = await request.json();
 
+    // Log full request details
     console.log('📬 Farcaster notification webhook received:', {
+      hasNeynarSignature: !!neynarSignature,
+      contentType: contentType,
+      headers: Object.fromEntries(headers.entries())
+    });
+
+    // Log full body (for debugging - can be large)
+    console.log('📦 Full webhook body:', JSON.stringify(body, null, 2));
+    console.log('📦 Body structure:', {
       hasHeader: !!body.header,
       hasPayload: !!body.payload,
       hasSignature: !!body.signature,
       hasEvent: !!body.event,
       hasFid: !!body.fid,
+      hasNotificationDetails: !!body.notificationDetails,
       bodyKeys: Object.keys(body),
-      bodySample: JSON.stringify(body).substring(0, 500) // Log first 500 chars for debugging
+      bodyType: typeof body
     });
 
     let verifiedEvent: any;
@@ -45,10 +61,16 @@ export async function POST(request: NextRequest) {
         verifiedEvent = await parseWebhookEvent(body, verifyAppKeyWithNeynar);
         console.log('✅ Webhook signature verified:', {
           fid: verifiedEvent.fid,
-          event: verifiedEvent.event
+          event: verifiedEvent.event,
+          hasNotificationDetails: !!verifiedEvent.notificationDetails
         });
       } catch (verifyError: any) {
         console.error('❌ Webhook signature verification failed:', verifyError);
+        console.error('❌ Error details:', {
+          name: verifyError.name,
+          message: verifyError.message,
+          stack: verifyError.stack
+        });
 
         // Handle specific error types per Farcaster docs
         if (verifyError.name === 'VerifyJsonFarcasterSignature.InvalidDataError' ||
@@ -74,23 +96,35 @@ export async function POST(request: NextRequest) {
           { status: 401 }
         );
       }
-    } else if (body.event && body.fid !== undefined) {
-      // Neynar forwarded format - already parsed, just use it directly
+    } else if (body.event) {
+      // Neynar forwarded format - already parsed
+      // May or may not have fid directly in body
       console.log('📝 Detected Neynar forwarded format, using directly');
+
+      // Extract FID from body or notificationDetails
+      const fid = body.fid || body.user_fid || body.user?.fid || body.notificationDetails?.fid;
+
       verifiedEvent = {
         event: body.event,
-        fid: body.fid,
-        notificationDetails: body.notificationDetails
+        fid: fid,
+        notificationDetails: body.notificationDetails || body.notification_details || {
+          token: body.token,
+          url: body.url
+        }
       };
+
       console.log('✅ Using Neynar forwarded event:', {
         fid: verifiedEvent.fid,
-        event: verifiedEvent.event
+        event: verifiedEvent.event,
+        hasNotificationDetails: !!verifiedEvent.notificationDetails,
+        notificationDetailsKeys: verifiedEvent.notificationDetails ? Object.keys(verifiedEvent.notificationDetails) : []
       });
     } else {
-      // Unknown format
-      console.error('❌ Unknown webhook format:', body);
+      // Unknown format - log everything for debugging
+      console.error('❌ Unknown webhook format. Full body:', JSON.stringify(body, null, 2));
+      console.error('❌ Headers:', Object.fromEntries(headers.entries()));
       return NextResponse.json(
-        { error: 'Unknown webhook format. Expected Farcaster signature or Neynar forwarded format.' },
+        { error: 'Unknown webhook format. Expected Farcaster signature or Neynar forwarded format.', received: body },
         { status: 400 }
       );
     }
@@ -99,8 +133,17 @@ export async function POST(request: NextRequest) {
     const fid = verifiedEvent.fid;
 
     if (!event) {
+      console.error('❌ Event is missing from verified payload:', verifiedEvent);
       return NextResponse.json(
         { error: 'event is required in verified payload' },
+        { status: 400 }
+      );
+    }
+
+    if (!fid || fid === undefined || fid === null) {
+      console.error('❌ FID is missing from verified payload:', verifiedEvent);
+      return NextResponse.json(
+        { error: 'fid is required in verified payload' },
         { status: 400 }
       );
     }
