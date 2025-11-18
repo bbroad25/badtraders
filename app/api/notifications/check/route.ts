@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     let tokenCount = 0;
     let tokens: any[] = [];
     let source = 'database';
+    let neynarTokensResponse: any = null; // Store for later sync
 
     // First, try to check Neynar's API (if using managed notifications)
     if (process.env.NEYNAR_API_KEY) {
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
         // Try to fetch notification tokens from Neynar
         try {
           // Fetch notification tokens for this specific FID
-          const neynarTokensResponse = await neynarClient.fetchNotificationTokens({
+          neynarTokensResponse = await neynarClient.fetchNotificationTokens({
             fids: [fidNumber]
           });
 
@@ -77,17 +78,52 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fall back to database check if Neynar didn't find tokens or failed
-    if (!hasNotifications) {
-      try {
-        const result = await query(
-          'SELECT fid, token, url, created_at, updated_at FROM notification_tokens WHERE fid = $1',
+    // Sync database with Neynar's current state
+    // If Neynar says user has notifications, store tokens in DB
+    // If Neynar says user has NO notifications, remove tokens from DB
+    try {
+      const dbResult = await query(
+        'SELECT fid, token, url, created_at, updated_at FROM notification_tokens WHERE fid = $1',
+        [fidNumber]
+      );
+
+      const dbTokens = dbResult.rows;
+      const hasDbTokens = dbTokens.length > 0;
+
+      // If Neynar has tokens but DB doesn't, sync DB with Neynar
+      if (hasNotifications && source === 'neynar' && neynarTokensResponse && neynarTokensResponse.notification_tokens) {
+        console.log(`🔄 Syncing database with Neynar tokens for FID ${fidNumber}`);
+        for (const neynarTokenData of neynarTokensResponse.notification_tokens) {
+          if (neynarTokenData.token && neynarTokenData.url && (neynarTokenData.fid === fidNumber || !neynarTokenData.fid)) {
+            await query(
+              `INSERT INTO notification_tokens (fid, token, url, created_at, updated_at)
+               VALUES ($1, $2, $3, NOW(), NOW())
+               ON CONFLICT (fid, token) DO UPDATE SET url = $3, updated_at = NOW()`,
+              [fidNumber, neynarTokenData.token, neynarTokenData.url]
+            );
+          }
+        }
+        console.log(`✅ Synced ${neynarTokensResponse.notification_tokens.length} token(s) to database for FID ${fidNumber}`);
+      }
+
+      // If Neynar has NO tokens but DB has tokens, remove stale tokens from DB
+      if (!hasNotifications && source === 'neynar' && hasDbTokens) {
+        console.log(`🗑️ Removing stale tokens from database for FID ${fidNumber} (no tokens in Neynar)`);
+        await query(
+          'DELETE FROM notification_tokens WHERE fid = $1',
           [fidNumber]
         );
+        console.log(`✅ Removed ${dbTokens.length} stale token(s) from database for FID ${fidNumber}`);
+        // Update our response to reflect cleaned state
+        tokenCount = 0;
+        tokens = [];
+      }
 
-        hasNotifications = result.rows.length > 0;
-        tokenCount = result.rows.length;
-        tokens = result.rows.map(row => ({
+      // If Neynar API failed, fall back to database
+      if (source !== 'neynar' && hasDbTokens) {
+        hasNotifications = true;
+        tokenCount = dbTokens.length;
+        tokens = dbTokens.map(row => ({
           fid: row.fid,
           token: row.token ? `${row.token.substring(0, 10)}...` : null,
           url: row.url,
@@ -97,10 +133,10 @@ export async function GET(request: NextRequest) {
         }));
         source = 'database';
         console.log(`✅ Found ${tokenCount} notification token(s) in database for FID ${fidNumber}`);
-      } catch (dbError: any) {
-        console.error(`❌ Database check failed: ${dbError.message}`);
-        // Continue with whatever we have from Neynar (even if empty)
       }
+    } catch (dbError: any) {
+      console.error(`❌ Database sync failed: ${dbError.message}`);
+      // Continue with whatever we have from Neynar (even if empty)
     }
 
     return NextResponse.json({

@@ -1,11 +1,9 @@
 /**
- * Notification Service using Farcaster's standard notification API
+ * Notification Service using stored Farcaster notification tokens
  *
+ * Uses tokens stored in database (synced from Neynar via webhook or check endpoint).
+ * This allows sending notifications without relying on Neynar's API directly.
  * According to Farcaster spec: https://miniapps.farcaster.xyz/docs/guides/notifications
- * - Tokens are sent in request body as an array (not in Authorization header)
- * - Can batch up to 100 tokens per request
- * - Must include notificationId for deduplication
- * - Response includes successfulTokens, invalidTokens, rateLimitedTokens arrays
  */
 
 import { query } from '@/lib/db/connection';
@@ -47,7 +45,7 @@ export async function sendNotification(
 
     if (tokens.length === 0) {
       console.warn('⚠️ No notification tokens found for target FIDs');
-      return;
+      throw new Error('No notification tokens found for target FIDs. Users may need to enable notifications first.');
     }
 
     // Generate notificationId if not provided (for deduplication)
