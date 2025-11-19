@@ -25,6 +25,9 @@ export async function sendNotification(
   targetUrl: string,
   notificationId?: string
 ): Promise<void> {
+  // Declare finalUuid outside try block so it's accessible in catch
+  const finalUuid = notificationId || `notification-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
   try {
     if (!process.env.NEYNAR_API_KEY) {
       throw new Error('NEYNAR_API_KEY environment variable is required');
@@ -32,8 +35,6 @@ export async function sendNotification(
 
     const neynarConfig = new Configuration({ apiKey: process.env.NEYNAR_API_KEY });
     const neynarClient = new NeynarAPIClient(neynarConfig);
-
-    const finalUuid = notificationId || `notification-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
     console.log(`🚀 Sending notifications via Neynar API:`, {
       targetFids: targetFids.length === 0 ? 'ALL_USERS' : targetFids,
