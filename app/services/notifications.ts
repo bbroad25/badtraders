@@ -43,7 +43,8 @@ export async function sendNotification(
       uuid: finalUuid
     });
 
-    await neynarClient.publishFrameNotifications({
+    // Prepare request body (SDK will convert targetFids to target_fids)
+    const requestBody = {
       targetFids: targetFids,
       notification: {
         title: title.substring(0, 32),
@@ -51,18 +52,40 @@ export async function sendNotification(
         target_url: targetUrl,
         uuid: finalUuid.substring(0, 128)
       }
-    });
+    };
+
+    console.log('📤 Request body (before SDK conversion):', JSON.stringify(requestBody, null, 2));
+
+    await neynarClient.publishFrameNotifications(requestBody);
 
     console.log(`✅ Notification sent successfully via Neynar`);
   } catch (error: any) {
-    console.error('❌ Failed to send notifications via Neynar:', {
-      message: error.message,
-      stack: error.stack,
-      response: error.response?.data,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      headers: error.response?.headers
-    });
+    // Extract full error details for Neynar support
+    const errorDetails = {
+      apiError: {
+        message: error.response?.data?.message || error.message,
+        code: error.response?.data?.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        errors: error.response?.data?.errors || []
+      },
+      requestSent: {
+        targetFids: targetFids.length === 0 ? '[] (broadcast to all)' : targetFids,
+        notification: {
+          title: title.substring(0, 32),
+          body: body.substring(0, 128),
+          target_url: targetUrl,
+          uuid: finalUuid.substring(0, 128)
+        }
+      },
+      sdkVersion: '@neynar/nodejs-sdk@3.34.0',
+      clientId: process.env.NEYNAR_CLIENT_ID || 'not-set',
+      domain: 'badtraders.xyz'
+    };
+
+    console.error('❌ Failed to send notifications via Neynar:', errorDetails);
+    console.error('❌ Full error response for Neynar support:', JSON.stringify(errorDetails, null, 2));
+
     throw error;
   }
 }
