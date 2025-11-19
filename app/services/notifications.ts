@@ -7,6 +7,7 @@
  */
 
 import { Configuration, NeynarAPIClient } from '@neynar/nodejs-sdk';
+import { randomUUID } from 'crypto';
 
 /**
  * Send notification using Neynar's managed notification API
@@ -26,7 +27,8 @@ export async function sendNotification(
   notificationId?: string
 ): Promise<void> {
   // Declare finalUuid outside try block so it's accessible in catch
-  const finalUuid = notificationId || `notification-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  // Neynar requires a valid UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+  const finalUuid = notificationId || randomUUID();
 
   try {
     if (!process.env.NEYNAR_API_KEY) {
