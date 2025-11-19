@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { tokenAddress, tokenSymbol, startDate, endDate, startBlock, endBlock } = body;
+    const { tokenAddress, tokenSymbol, startDate, endDate } = body;
 
     if (!tokenAddress || !startDate || !endDate) {
       return NextResponse.json(
@@ -34,18 +34,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Create contest
+    // Note: start_block and end_block columns don't exist in the table schema
     const result = await query(
       `INSERT INTO weekly_contests
-       (token_address, token_symbol, start_date, end_date, start_block, end_block, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW(), NOW())
+       (token_address, token_symbol, start_date, end_date, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, 'active', NOW(), NOW())
        RETURNING id, token_address, token_symbol, start_date, end_date, status`,
       [
         tokenAddress,
         tokenSymbol || null,
         new Date(startDate),
-        new Date(endDate),
-        startBlock || null,
-        endBlock || null
+        new Date(endDate)
       ]
     );
 
