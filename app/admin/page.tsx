@@ -59,6 +59,18 @@ export default function AdminPage() {
   const [isCreatingContest, setIsCreatingContest] = useState(false)
   const [contestMessage, setContestMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
+  // Contest management state
+  const [contests, setContests] = useState<any[]>([])
+  const [isLoadingContests, setIsLoadingContests] = useState(false)
+  const [isArchivingContest, setIsArchivingContest] = useState(false)
+  const [archiveMessage, setArchiveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  // PnL recalculation state
+  const [recalcContestId, setRecalcContestId] = useState("")
+  const [recalcRegistrationId, setRecalcRegistrationId] = useState("")
+  const [isRecalculatingPnL, setIsRecalculatingPnL] = useState(false)
+  const [recalcMessage, setRecalcMessage] = useState<{ type: "success" | "error"; text: string; details?: any } | null>(null)
+
   // Redirect if not admin
   useEffect(() => {
     if (!isLoadingAdmin && !isLoadingFarcaster && !isAdmin) {
@@ -366,6 +378,8 @@ export default function AdminPage() {
         setContestStartDate("")
         setContestEndDate("")
         setTimeout(() => setContestMessage(null), 5000)
+        // Reload contests list
+        loadContests()
       } else {
         setContestMessage({ type: "error", text: `Failed to create contest: ${data.error || "Unknown error"}` })
       }
@@ -376,6 +390,128 @@ export default function AdminPage() {
       setIsCreatingContest(false)
     }
   }
+
+  const loadContests = async () => {
+    setIsLoadingContests(true)
+    try {
+      // Load both active and completed contests
+      const [activeResponse, completedResponse] = await Promise.all([
+        fetch('/api/contests/list?status=active'),
+        fetch('/api/contests/list?status=completed')
+      ])
+
+      const activeData = await activeResponse.json()
+      const completedData = await completedResponse.json()
+
+      const allContests = [
+        ...(activeData.success ? activeData.contests : []),
+        ...(completedData.success ? completedData.contests : [])
+      ]
+
+      setContests(allContests)
+    } catch (error: any) {
+      console.error("Error loading contests:", error)
+    } finally {
+      setIsLoadingContests(false)
+    }
+  }
+
+  const handleArchiveContest = async (contestId: number) => {
+    setArchiveMessage(null)
+
+    if (!currentFid) {
+      setArchiveMessage({ type: "error", text: "Unable to get your FID. Please ensure you're logged in via Farcaster." })
+      return
+    }
+
+    if (!confirm(`Are you sure you want to archive contest #${contestId}?`)) {
+      return
+    }
+
+    setIsArchivingContest(true)
+    try {
+      const response = await fetch(
+        `/api/admin/contests/archive?fid=${currentFid}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contestId })
+        }
+      )
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setArchiveMessage({ type: "success", text: data.message || "Contest archived successfully!" })
+        setTimeout(() => setArchiveMessage(null), 5000)
+        // Reload contests list
+        loadContests()
+      } else {
+        setArchiveMessage({ type: "error", text: `Failed to archive contest: ${data.error || "Unknown error"}` })
+      }
+    } catch (error: any) {
+      console.error("Error archiving contest:", error)
+      setArchiveMessage({ type: "error", text: `Error: ${error.message || "Failed to archive contest"}` })
+    } finally {
+      setIsArchivingContest(false)
+    }
+  }
+
+  const handleRecalculatePnL = async () => {
+    setRecalcMessage(null)
+
+    if (!currentFid) {
+      setRecalcMessage({ type: "error", text: "Unable to get your FID. Please ensure you're logged in via Farcaster." })
+      return
+    }
+
+    if (!recalcContestId && !recalcRegistrationId) {
+      setRecalcMessage({ type: "error", text: "Please provide either a Contest ID or Registration ID" })
+      return
+    }
+
+    setIsRecalculatingPnL(true)
+    try {
+      const response = await fetch(
+        `/api/admin/contests/recalculate-pnl?fid=${currentFid}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contestId: recalcContestId ? parseInt(recalcContestId, 10) : undefined,
+            registrationId: recalcRegistrationId ? parseInt(recalcRegistrationId, 10) : undefined
+          })
+        }
+      )
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setRecalcMessage({
+          type: "success",
+          text: data.message || "PnL recalculated successfully!",
+          details: data.results
+        })
+        setRecalcContestId("")
+        setRecalcRegistrationId("")
+        setTimeout(() => setRecalcMessage(null), 10000) // Keep visible longer since it has details
+      } else {
+        setRecalcMessage({ type: "error", text: `Failed to recalculate PnL: ${data.error || "Unknown error"}` })
+      }
+    } catch (error: any) {
+      console.error("Error recalculating PnL:", error)
+      setRecalcMessage({ type: "error", text: `Error: ${error.message || "Failed to recalculate PnL"}` })
+    } finally {
+      setIsRecalculatingPnL(false)
+    }
+  }
+
+  // Load contests on mount
+  useEffect(() => {
+    if (isAdmin) {
+      loadContests()
+    }
+  }, [isAdmin])
 
   const handleCreateVotingPeriod = async () => {
     setVotingMessage(null)
@@ -690,6 +826,161 @@ export default function AdminPage() {
                   {contestMessage.type === "success" ? "✓ " : "✗ "}
                   {contestMessage.text}
                 </p>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Contest Management - List and Archive */}
+        <Card className="p-6 mb-6">
+          <h2 className="text-2xl font-bold mb-4 text-primary uppercase">Manage Contests</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            View and archive existing contests.
+          </p>
+
+          <div className="space-y-4">
+            <Button
+              onClick={loadContests}
+              disabled={isLoadingContests}
+              variant="outline"
+              className="w-full"
+            >
+              {isLoadingContests ? "Loading..." : "Refresh Contests"}
+            </Button>
+
+            {archiveMessage && (
+              <div
+                className={`p-3 rounded-md ${
+                  archiveMessage.type === "success"
+                    ? "bg-green-500/20 text-green-400 border border-green-500/50"
+                    : "bg-red-500/20 text-red-400 border border-red-500/50"
+                }`}
+              >
+                <p className="text-sm font-medium">
+                  {archiveMessage.type === "success" ? "✓ " : "✗ "}
+                  {archiveMessage.text}
+                </p>
+              </div>
+            )}
+
+            {isLoadingContests ? (
+              <p className="text-center text-sm text-muted-foreground">Loading contests...</p>
+            ) : contests.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground">No contests found.</p>
+            ) : (
+              <div className="space-y-2">
+                {contests.map((contest) => (
+                  <div
+                    key={contest.id}
+                    className="flex items-center justify-between p-3 border-2 rounded-md"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-bold">Contest #{contest.id}</p>
+                        <span
+                          className={`text-xs px-2 py-1 rounded ${
+                            contest.status === 'active'
+                              ? 'bg-green-500/20 text-green-400 border border-green-500/50'
+                              : contest.status === 'completed'
+                              ? 'bg-gray-500/20 text-gray-400 border border-gray-500/50'
+                              : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50'
+                          }`}
+                        >
+                          {contest.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {contest.tokenSymbol || contest.tokenAddress?.slice(0, 10) + '...'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(contest.startDate).toLocaleDateString()} - {new Date(contest.endDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {contest.status === 'active' && (
+                      <Button
+                        onClick={() => handleArchiveContest(contest.id)}
+                        disabled={isArchivingContest}
+                        variant="destructive"
+                        size="sm"
+                      >
+                        {isArchivingContest ? "Archiving..." : "Archive"}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* PnL Recalculation Section */}
+        <Card className="p-6 mb-6">
+          <h2 className="text-2xl font-bold mb-4 text-primary uppercase">Recalculate Contest PnL</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Manually recalculate PnL for contest registrations. Use Contest ID to recalculate all registrations for that contest, or Registration ID for a specific registration.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Contest ID (optional)</label>
+              <Input
+                type="number"
+                value={recalcContestId}
+                onChange={(e) => setRecalcContestId(e.target.value)}
+                placeholder="Enter contest ID"
+                className="font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Registration ID (optional)</label>
+              <Input
+                type="number"
+                value={recalcRegistrationId}
+                onChange={(e) => setRecalcRegistrationId(e.target.value)}
+                placeholder="Enter registration ID"
+                className="font-mono"
+              />
+            </div>
+
+            <Button
+              onClick={handleRecalculatePnL}
+              disabled={isRecalculatingPnL || (!recalcContestId && !recalcRegistrationId)}
+              className="w-full"
+              variant="outline"
+            >
+              {isRecalculatingPnL ? "Recalculating..." : "Recalculate PnL"}
+            </Button>
+
+            {recalcMessage && (
+              <div
+                className={`p-4 rounded-md ${
+                  recalcMessage.type === "success"
+                    ? "bg-green-500/20 text-green-400 border border-green-500/50"
+                    : "bg-red-500/20 text-red-400 border border-red-500/50"
+                }`}
+              >
+                <p className="text-sm font-medium mb-2">
+                  {recalcMessage.type === "success" ? "✓ " : "✗ "}
+                  {recalcMessage.text}
+                </p>
+                {recalcMessage.details && (
+                  <div className="text-xs space-y-1 mt-2">
+                    <p><strong>Total:</strong> {recalcMessage.details.total}</p>
+                    <p><strong>Successful:</strong> {recalcMessage.details.successful}</p>
+                    <p><strong>Failed:</strong> {recalcMessage.details.failed}</p>
+                    {recalcMessage.details.errors && recalcMessage.details.errors.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-current/20">
+                        <p className="font-bold">Errors:</p>
+                        {recalcMessage.details.errors.slice(0, 5).map((err: any, idx: number) => (
+                          <p key={idx} className="text-red-300">
+                            Registration {err.registrationId}: {err.error}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

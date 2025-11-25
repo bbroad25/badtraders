@@ -359,7 +359,7 @@ async function storeUserTrade(
  * Calculate PnL for a user's contest registration
  * Uses FIFO accounting similar to the existing system
  */
-async function calculateUserPnL(
+export async function calculateUserPnL(
   registrationId: number,
   tokenAddress: string
 ): Promise<number> {
@@ -377,35 +377,93 @@ async function calculateUserPnL(
     return 0;
   }
 
-  // Simple FIFO PnL calculation
-  // This is a simplified version - you'd want to use the existing fifoAccounting service
+  // FIFO PnL calculation
+  // Note: amount_in and amount_out are stored as NUMERIC in database (may be strings when retrieved)
+  // For buys: amount_out = tokens received, amount_in = payment amount
+  // For sells: amount_in = tokens sold, amount_out = payment received
   let position = 0; // Net position in tokens
-  let costBasis = 0; // Total cost basis
+  let costBasis = 0; // Total cost basis in USD
   let realizedPnL = 0;
 
   for (const trade of trades) {
+    // Parse NUMERIC fields (they may be strings from database)
+    const amountIn = typeof trade.amount_in === 'string' ? parseFloat(trade.amount_in) : Number(trade.amount_in || 0);
+    const amountOut = typeof trade.amount_out === 'string' ? parseFloat(trade.amount_out) : Number(trade.amount_out || 0);
+    const priceUsd = typeof trade.price_usd === 'string' ? parseFloat(trade.price_usd) : Number(trade.price_usd || 0);
+
     if (trade.trade_type === 'buy') {
-      position += parseFloat(trade.amount_in);
-      costBasis += (parseFloat(trade.amount_in) * (trade.price_usd || 0));
+      // Buy: amount_out is tokens received, amount_in is payment
+      // price_usd should be per token, or total USD value of the buy
+      const tokensReceived = amountOut;
+
+      // Calculate cost basis
+      let costBasisForBuy = 0;
+      if (priceUsd > 0) {
+        // If price_usd is per token
+        costBasisForBuy = tokensReceived * priceUsd;
+      } else {
+        // Fallback: assume price_usd represents total value
+        // This is approximate - ideally price_usd should always be per token
+        costBasisForBuy = amountIn > 0 ? amountIn : 0;
+      }
+
+      position += tokensReceived;
+      costBasis += costBasisForBuy;
+
+      logInfo(`[UserIndexer] BUY: +${tokensReceived.toFixed(6)} tokens, cost basis +$${costBasisForBuy.toFixed(2)}`);
     } else if (trade.trade_type === 'sell') {
-      const sellAmount = parseFloat(trade.amount_out);
-      const sellValue = sellAmount * (trade.price_usd || 0);
+      // Sell: amount_in is tokens sold, amount_out is payment received
+      const tokensSold = amountIn;
 
-      // Calculate cost basis for sold tokens (FIFO)
-      const avgCost = costBasis / Math.max(position, 1);
-      const costOfSold = sellAmount * avgCost;
+      if (position <= 0 || tokensSold <= 0) {
+        logError(`[UserIndexer] Invalid sell: position=${position}, tokensSold=${tokensSold}`);
+        continue;
+      }
 
-      realizedPnL += (sellValue - costOfSold);
-      position -= sellAmount;
+      // Calculate sell value
+      const sellValue = tokensSold * priceUsd;
+
+      // Calculate cost basis for sold tokens (FIFO - average cost)
+      const avgCostPerToken = costBasis / position;
+      const costOfSold = tokensSold * avgCostPerToken;
+      const tradePnL = sellValue - costOfSold;
+
+      realizedPnL += tradePnL;
+      position -= tokensSold;
       costBasis -= costOfSold;
+
+      // Ensure non-negative values
+      if (position < 0) {
+        logError(`[UserIndexer] Position went negative: ${position}, resetting to 0`);
+        position = 0;
+      }
+      if (costBasis < 0) {
+        logError(`[UserIndexer] Cost basis went negative: ${costBasis}, resetting to 0`);
+        costBasis = 0;
+      }
+
+      logInfo(`[UserIndexer] SELL: -${tokensSold.toFixed(6)} tokens, realized PnL: $${tradePnL.toFixed(2)}`);
     }
   }
 
   // Get current price for unrealized PnL
-  const currentPrice = await getCurrentPrice(tokenAddress);
-  const unrealizedPnL = position * (currentPrice - (costBasis / Math.max(position, 1)));
+  let unrealizedPnL = 0;
+  if (position > 0) {
+    try {
+      const currentPrice = await getCurrentPrice(tokenAddress);
+      if (currentPrice && currentPrice > 0) {
+        const avgCostPerToken = costBasis / position;
+        unrealizedPnL = position * (currentPrice - avgCostPerToken);
+        logInfo(`[UserIndexer] Unrealized PnL: position=${position.toFixed(6)}, avgCost=$${avgCostPerToken.toFixed(6)}, currentPrice=$${currentPrice.toFixed(6)}, unrealized=$${unrealizedPnL.toFixed(2)}`);
+      }
+    } catch (error: any) {
+      logError(`[UserIndexer] Error getting current price for ${tokenAddress}: ${error.message}`);
+      // Continue without unrealized PnL if price fetch fails
+    }
+  }
 
   const totalPnL = realizedPnL + unrealizedPnL;
+  logInfo(`[UserIndexer] Total PnL: realized=$${realizedPnL.toFixed(2)}, unrealized=$${unrealizedPnL.toFixed(2)}, total=$${totalPnL.toFixed(2)}`);
 
   return totalPnL;
 }

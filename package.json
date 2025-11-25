@@ -16,7 +16,10 @@
     "migrate": "tsx scripts/run-migration.ts",
     "add-token": "tsx scripts/add-token.ts",
     "cleanup": "tsx scripts/run-cleanup.ts",
-    "cleanup:check-only": "tsx scripts/run-cleanup.ts --no-remove"
+    "cleanup:check-only": "tsx scripts/run-cleanup.ts --no-remove",
+    "recalc-pnl": "tsx scripts/recalculate-contest-pnl.ts",
+    "indexer": "tsx scripts/indexer.ts",
+    "indexer:watch": "INDEXER_CONTINUOUS=true tsx scripts/indexer.ts"
   },
   "dependencies": {
     "@farcaster/miniapp-node": "^0.1.11",
