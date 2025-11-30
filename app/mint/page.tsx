@@ -3,19 +3,17 @@
 import MintNFT from '@/components/leaderboard/MintNFT';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
 } from '@/components/ui/dialog';
-import { Info } from 'lucide-react';
+import { WEBSITE_MINT_THRESHOLD, getMintThreshold } from '@/lib/config/eligibility';
 import { sdk } from '@farcaster/miniapp-sdk';
-import { useCallback, useEffect, useState, useRef } from 'react';
-
-const FARCASTER_ELIGIBILITY_THRESHOLD = 10_000_000; // 10M for Farcaster miniapp users (NFT mint threshold)
-const WEBSITE_ELIGIBILITY_THRESHOLD = 10_000_000; // 10M for website users (NFT mint threshold)
+import { Info } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export default function MintPage() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -23,7 +21,7 @@ export default function MintPage() {
   const [userBalance, setUserBalance] = useState<number>(0);
   const [isEligible, setIsEligible] = useState<boolean>(false);
   const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false);
-  const [eligibilityThreshold, setEligibilityThreshold] = useState<number>(WEBSITE_ELIGIBILITY_THRESHOLD);
+  const [eligibilityThreshold, setEligibilityThreshold] = useState<number>(WEBSITE_MINT_THRESHOLD);
   const [error, setError] = useState<string | null>(null);
 
   // Track initialization to prevent multiple calls
@@ -66,7 +64,7 @@ export default function MintPage() {
             const balanceFormatted = parseFloat(ethers.formatUnits(balance, decimals));
             setUserBalance(balanceFormatted);
             // Use appropriate threshold based on whether we have FID (Farcaster user)
-            const threshold = userFid ? FARCASTER_ELIGIBILITY_THRESHOLD : WEBSITE_ELIGIBILITY_THRESHOLD;
+            const threshold = getMintThreshold(!!userFid);
             setEligibilityThreshold(threshold);
             setIsEligible(balanceFormatted >= threshold);
             return;
@@ -82,7 +80,7 @@ export default function MintPage() {
       }
       const data = await response.json();
       const balance = data.balance || 0;
-      const threshold = data.threshold || (userFid ? FARCASTER_ELIGIBILITY_THRESHOLD : WEBSITE_ELIGIBILITY_THRESHOLD);
+      const threshold = data.threshold || getMintThreshold(!!userFid);
       setUserBalance(balance);
       setEligibilityThreshold(threshold);
       // Calculate eligibility client-side (just balance >= threshold)

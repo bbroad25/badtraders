@@ -1,10 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { ethers } from 'ethers';
+import { CONTEST_ELIGIBILITY_THRESHOLD } from '@/lib/config/eligibility';
 import { query } from '@/lib/db/connection';
-import { indexUserWalletForToken } from '@/lib/services/userIndexerService';
 import { getBadTradersBalance } from '@/lib/services/tokenService';
-
-const CONTEST_ELIGIBILITY_THRESHOLD = 5_000_000; // 5M tokens required for contests
+import { indexUserWalletForToken } from '@/lib/services/userIndexerService';
+import { ethers } from 'ethers';
+import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * POST /api/contests/register

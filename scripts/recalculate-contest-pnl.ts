@@ -13,8 +13,110 @@
  */
 
 import 'dotenv/config';
-import { query } from '../lib/db/connection';
-import { calculateUserPnL } from '../lib/services/userIndexerService';
+import { query, closePool } from '../lib/db/connection';
+import { getCurrentPrice } from '../lib/services/priceService';
+
+/**
+ * Calculate user PnL - script-specific version that uses the standard connection
+ * This is a copy of calculateUserPnL from userIndexerService but uses our query function
+ */
+async function calculateUserPnL(
+  registrationId: number,
+  tokenAddress: string
+): Promise<number> {
+  // Get all trades for this registration
+  const tradesResult = await query(
+    `SELECT * FROM user_trades
+     WHERE registration_id = $1 AND token_address = $2
+     ORDER BY timestamp ASC, block_number ASC`,
+    [registrationId, tokenAddress.toLowerCase()]
+  );
+
+  const trades = tradesResult.rows;
+
+  if (trades.length === 0) {
+    return 0;
+  }
+
+  // FIFO PnL calculation
+  let position = 0; // Net position in tokens
+  let costBasis = 0; // Total cost basis in USD
+  let realizedPnL = 0;
+
+  for (const trade of trades) {
+    // Parse NUMERIC fields (they may be strings from database)
+    const amountIn = typeof trade.amount_in === 'string' ? parseFloat(trade.amount_in) : Number(trade.amount_in || 0);
+    const amountOut = typeof trade.amount_out === 'string' ? parseFloat(trade.amount_out) : Number(trade.amount_out || 0);
+    const priceUsd = typeof trade.price_usd === 'string' ? parseFloat(trade.price_usd) : Number(trade.price_usd || 0);
+
+    if (trade.trade_type === 'buy') {
+      // Buy: amount_out is tokens received, amount_in is payment
+      const tokensReceived = amountOut;
+
+      // Calculate cost basis
+      let costBasisForBuy = 0;
+      if (priceUsd > 0) {
+        // If price_usd is per token
+        costBasisForBuy = tokensReceived * priceUsd;
+      } else {
+        // Fallback: assume price_usd represents total value
+        costBasisForBuy = amountIn > 0 ? amountIn : 0;
+      }
+
+      position += tokensReceived;
+      costBasis += costBasisForBuy;
+    } else if (trade.trade_type === 'sell') {
+      // Sell: amount_in is tokens sold, amount_out is payment received
+      const tokensSold = amountIn;
+
+      if (position <= 0 || tokensSold <= 0) {
+        continue; // Skip invalid sells
+      }
+
+      const avgCostPerToken = costBasis / position;
+      const costOfSold = tokensSold * avgCostPerToken;
+
+      // Calculate sell value
+      let sellValue = 0;
+      if (priceUsd > 0) {
+        sellValue = tokensSold * priceUsd;
+      } else {
+        sellValue = amountOut; // Fallback to amount_out
+      }
+
+      const tradePnL = sellValue - costOfSold;
+      realizedPnL += tradePnL;
+      position -= tokensSold;
+      costBasis -= costOfSold;
+
+      if (costBasis < 0) {
+        costBasis = 0; // Reset if negative
+      }
+    }
+  }
+
+  // Get current price for unrealized PnL
+  let unrealizedPnL = 0;
+  if (position > 0) {
+    try {
+      const currentPrice = await getCurrentPrice(tokenAddress);
+      if (currentPrice && currentPrice > 0) {
+        const avgCostPerToken = costBasis / position;
+        unrealizedPnL = position * (currentPrice - avgCostPerToken);
+      }
+    } catch (error: any) {
+      // Continue without unrealized PnL if price fetch fails
+    }
+  }
+
+  const totalPnL = realizedPnL + unrealizedPnL;
+  return totalPnL;
+}
+
+async function closeConnection() {
+  await closePool();
+  console.log('✅ Database connection closed');
+}
 
 interface RecalcOptions {
   contestId?: number;
@@ -170,6 +272,9 @@ async function recalculatePnL(options: RecalcOptions) {
     });
   }
 
+  // Close database connection
+  await closeConnection();
+
   process.exit(results.failed > 0 ? 1 : 0);
 }
 
@@ -198,11 +303,28 @@ async function main() {
   }
 
   try {
-    await query('SELECT 1');
-    console.log('✅ Database connection verified');
-    console.log('');
+    // Test connection with retry logic built into query function
+    const testResult = await query('SELECT 1 as test');
+    if (testResult.rows && testResult.rows[0]?.test === 1) {
+      console.log('✅ Database connection verified');
+      console.log('');
+    } else {
+      throw new Error('Connection test query returned unexpected result');
+    }
   } catch (error: any) {
-    console.error('❌ Database connection failed:', error.message);
+    const errorMessage = error?.message || String(error);
+    // If it's a connection termination error, the retry should have handled it
+    if (errorMessage.includes('shutdown') ||
+        errorMessage.includes('db_termination') ||
+        errorMessage.includes('DbHandler exited')) {
+      console.error('❌ Database connection unstable - pooler is terminating connections');
+      console.error('   Error:', errorMessage);
+    } else {
+      console.error('❌ Database connection failed:', errorMessage);
+    }
+    console.error('');
+    console.error('💡 Tip: Make sure your DATABASE_URL is set correctly in .env');
+    await closeConnection();
     process.exit(1);
   }
 
@@ -216,7 +338,13 @@ async function main() {
     console.log('');
   }
 
-  await recalculatePnL(options);
+  try {
+    await recalculatePnL(options);
+  } catch (error: any) {
+    console.error('❌ Fatal error:', error.message);
+    await closeConnection();
+    process.exit(1);
+  }
 }
 
 // Run if called directly

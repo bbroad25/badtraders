@@ -1,11 +1,10 @@
 "use client"
 
-import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import Link from "next/link"
 
-const FARCASTER_ELIGIBILITY_THRESHOLD = 1_000_000 // 1M for Farcaster miniapp users
-const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000 // 2M for website users
+import { FARCASTER_ELIGIBILITY_THRESHOLD, WEBSITE_ELIGIBILITY_THRESHOLD } from '@/lib/config/eligibility'
 
 export default function HowItWorksPage() {
   return (

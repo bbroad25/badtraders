@@ -45,11 +45,15 @@ function getSupabasePool(): Pool {
     console.log('[DB Connection] Final connection string:', connectionString.replace(/:[^:@]+@/, ':****@'));
     console.log('[DB Connection] SSL config:', sslConfig);
 
+    // Use longer timeout for scripts (detected via NODE_ENV or script context)
+    const isScriptContext = process.argv && process.argv.some(arg => arg.includes('tsx') || arg.includes('node'));
+    const connectionTimeout = isScriptContext ? 30000 : 5000; // 30s for scripts, 5s for serverless
+
     pgPool = new Pool({
       connectionString,
       max: 1, // Reduce to 1 connection - pooler handles concurrency
-      idleTimeoutMillis: 10000, // 10 seconds
-      connectionTimeoutMillis: 5000, // 5 seconds - fail fast
+      idleTimeoutMillis: 30000, // 30 seconds
+      connectionTimeoutMillis: connectionTimeout,
       ssl: sslConfig
     });
 

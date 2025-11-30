@@ -5,12 +5,10 @@ import Header from '@/components/leaderboard/Header';
 import Leaderboard from '@/components/leaderboard/Leaderboard';
 import MyStatus from '@/components/leaderboard/MyStatus';
 import { Button } from '@/components/ui/button';
+import { WEBSITE_ELIGIBILITY_THRESHOLD, getEligibilityThreshold } from '@/lib/config/eligibility';
 import { LeaderboardEntry } from '@/types/leaderboard';
 import { sdk } from '@farcaster/miniapp-sdk';
-import { useCallback, useEffect, useState, useRef } from 'react';
-
-const FARCASTER_ELIGIBILITY_THRESHOLD = 1_000_000; // 1M for Farcaster miniapp users (competition eligibility)
-const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000; // 2M for website users (competition eligibility)
+import { useCallback, useEffect, useRef, useState } from 'react';
 const BADTRADERS_CONTRACT = '0x0774409Cda69A47f272907fd5D0d80173167BB07';
 
 export default function LeaderboardPage() {
@@ -65,7 +63,7 @@ export default function LeaderboardPage() {
             const balanceFormatted = parseFloat(ethers.formatUnits(balance, decimals));
             setUserBalance(balanceFormatted);
             // Use appropriate threshold based on whether we have FID (Farcaster user)
-            const threshold = userFid ? FARCASTER_ELIGIBILITY_THRESHOLD : WEBSITE_ELIGIBILITY_THRESHOLD;
+            const threshold = getEligibilityThreshold(!!userFid);
             setEligibilityThreshold(threshold);
             setIsEligible(balanceFormatted >= threshold);
             return;
@@ -81,7 +79,7 @@ export default function LeaderboardPage() {
       }
       const data = await response.json();
       const balance = data.balance || 0;
-      const threshold = data.threshold || (userFid ? FARCASTER_ELIGIBILITY_THRESHOLD : WEBSITE_ELIGIBILITY_THRESHOLD);
+      const threshold = data.threshold || getEligibilityThreshold(!!userFid);
       setUserBalance(balance);
       setEligibilityThreshold(threshold);
       // Calculate eligibility client-side (just balance >= threshold)

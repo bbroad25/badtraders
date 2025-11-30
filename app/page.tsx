@@ -1,15 +1,13 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import Link from "next/link"
+import MyStatus from '@/components/leaderboard/MyStatus'
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { sdk } from '@farcaster/miniapp-sdk'
-import MyStatus from '@/components/leaderboard/MyStatus'
+import { WEBSITE_ELIGIBILITY_THRESHOLD, getEligibilityThreshold } from '@/lib/config/eligibility'
 import { useFarcasterContext } from '@/lib/hooks/useFarcasterContext'
-
-const FARCASTER_ELIGIBILITY_THRESHOLD = 1_000_000; // 1M for Farcaster miniapp users
-const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000; // 2M for website users
+import { sdk } from '@farcaster/miniapp-sdk'
+import Link from "next/link"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 export default function BadTradersLanding() {
   const { isInFarcaster } = useFarcasterContext()
@@ -67,7 +65,7 @@ export default function BadTradersLanding() {
             const decimals = await tokenContract.decimals().catch(() => 18)
             const balanceFormatted = parseFloat(ethers.formatUnits(balance, decimals))
             setUserBalance(balanceFormatted)
-            const threshold = userFid ? FARCASTER_ELIGIBILITY_THRESHOLD : WEBSITE_ELIGIBILITY_THRESHOLD
+            const threshold = getEligibilityThreshold(!!userFid)
             setEligibilityThreshold(threshold)
             setIsEligible(balanceFormatted >= threshold)
             return
@@ -83,7 +81,7 @@ export default function BadTradersLanding() {
       }
       const data = await response.json()
       const balance = data.balance || 0
-      const threshold = data.threshold || (userFid ? FARCASTER_ELIGIBILITY_THRESHOLD : WEBSITE_ELIGIBILITY_THRESHOLD)
+      const threshold = data.threshold || getEligibilityThreshold(!!userFid)
       setUserBalance(balance)
       setEligibilityThreshold(threshold)
       // Calculate eligibility client-side (just balance >= threshold)

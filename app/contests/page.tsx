@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { CONTEST_ELIGIBILITY_THRESHOLD } from '@/lib/config/eligibility';
 import { useFarcasterContext } from '@/lib/hooks/useFarcasterContext';
-import { ethers } from 'ethers';
 import { sdk } from '@farcaster/miniapp-sdk';
+import { ethers } from 'ethers';
+import { useEffect, useRef, useState } from 'react';
 
 interface Contest {
   id: number;
@@ -53,7 +54,6 @@ export default function ContestsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
   const [isCheckingBalance, setIsCheckingBalance] = useState(false);
-  const CONTEST_ELIGIBILITY_THRESHOLD = 5_000_000; // 5M tokens required
   const hasInitialized = useRef(false);
 
   // Voting state

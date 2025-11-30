@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { registerUser } from '@/lib/services/userService';
+import { getEligibilityThreshold } from '@/lib/config/eligibility';
 import { getBadTradersBalance } from '@/lib/services/tokenService';
-
-const FARCASTER_ELIGIBILITY_THRESHOLD = 1_000_000; // 1M for Farcaster miniapp users
-const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000; // 2M for website users
+import { registerUser } from '@/lib/services/userService';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     // FID present = Farcaster user = 1M threshold, otherwise 2M for website
-    const threshold = fid ? FARCASTER_ELIGIBILITY_THRESHOLD : WEBSITE_ELIGIBILITY_THRESHOLD;
+    const threshold = getEligibilityThreshold(!!fid);
     const isEligible = balance >= threshold;
 
     if (!isEligible) {

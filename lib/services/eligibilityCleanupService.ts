@@ -1,12 +1,10 @@
 // lib/services/eligibilityCleanupService.ts
 // Service to check and clean up users who no longer hold required tokens
 
+import { getEligibilityThreshold } from '@/lib/config/eligibility';
 import { query } from '@/lib/db/connection';
+import { logError, logInfo } from './indexerLogger';
 import { getBadTradersBalance } from './tokenService';
-import { logInfo, logError } from './indexerLogger';
-
-const FARCASTER_ELIGIBILITY_THRESHOLD = 1_000_000; // 1M tokens for Farcaster users
-const WEBSITE_ELIGIBILITY_THRESHOLD = 2_000_000; // 2M tokens for website users
 
 interface CleanupResult {
   totalChecked: number;
@@ -69,19 +67,39 @@ export async function cleanupIneligibleUsers(
 
         // Determine threshold based on whether user has FID (Farcaster user)
         // If fid exists, they're a Farcaster user (lower threshold)
-        const threshold = fid ? FARCASTER_ELIGIBILITY_THRESHOLD : WEBSITE_ELIGIBILITY_THRESHOLD;
+        const threshold = getEligibilityThreshold(!!fid);
 
-        // Get current balance
-        const currentBalance = await getBadTradersBalance(walletAddress);
+        // Get current balance with retry logic for better reliability
+        let currentBalance = 0;
+        let retries = 3;
+        while (retries > 0) {
+          try {
+            currentBalance = await getBadTradersBalance(walletAddress);
+            break; // Success, exit retry loop
+          } catch (error: any) {
+            retries--;
+            if (retries === 0) {
+              logError(`[EligibilityCleanup] Failed to get balance for FID ${fid} after 3 attempts: ${error.message}`);
+              throw error;
+            }
+            // Wait before retry (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * (4 - retries)));
+          }
+        }
+
         const isEligible = currentBalance >= threshold;
 
-        // Update eligibility status if it changed
+        // Always update eligibility status to ensure it's current (not just when changed)
+        // This ensures real-time accuracy even if cleanup runs infrequently
+        await query(
+          'UPDATE users SET eligibility_status = $1, updated_at = NOW() WHERE fid = $2',
+          [isEligible, fid]
+        );
+
         if (previousEligible !== isEligible) {
-          await query(
-            'UPDATE users SET eligibility_status = $1, updated_at = NOW() WHERE fid = $2',
-            [isEligible, fid]
-          );
-          logInfo(`[EligibilityCleanup] Updated eligibility for FID ${fid}: ${previousEligible} -> ${isEligible}`);
+          logInfo(`[EligibilityCleanup] Updated eligibility for FID ${fid}: ${previousEligible} -> ${isEligible} (balance: ${currentBalance.toLocaleString()}, threshold: ${threshold.toLocaleString()})`);
+        } else {
+          logInfo(`[EligibilityCleanup] Verified eligibility for FID ${fid}: ${isEligible} (balance: ${currentBalance.toLocaleString()}, threshold: ${threshold.toLocaleString()})`);
         }
 
         if (isEligible) {
