@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess"
 import { useFarcasterContext } from "@/lib/hooks/useFarcasterContext"
 import { sdk } from "@farcaster/miniapp-sdk"
+import { useEffect, useState } from "react"
 
 interface LoserboardEntry {
   id: number
@@ -71,12 +71,143 @@ export default function AdminPage() {
   const [isRecalculatingPnL, setIsRecalculatingPnL] = useState(false)
   const [recalcMessage, setRecalcMessage] = useState<{ type: "success" | "error"; text: string; details?: any } | null>(null)
 
+  // Error tracking state
+  const [miniappErrors, setMiniappErrors] = useState<Array<{
+    timestamp: string;
+    type: string;
+    message: string;
+    stack?: string;
+    source?: string;
+  }>>([])
+  const [isLoadingErrors, setIsLoadingErrors] = useState(false)
+
   // Redirect if not admin
   useEffect(() => {
     if (!isLoadingAdmin && !isLoadingFarcaster && !isAdmin) {
       window.location.href = "/"
     }
   }, [isAdmin, isLoadingAdmin, isLoadingFarcaster])
+
+  // Set up error tracking for miniapp errors
+  useEffect(() => {
+    if (!isAdmin) return
+
+    const errors: Array<{
+      timestamp: string;
+      type: string;
+      message: string;
+      stack?: string;
+      source?: string;
+    }> = []
+
+    // Track window errors
+    const handleError = (event: ErrorEvent) => {
+      errors.push({
+        timestamp: new Date().toISOString(),
+        type: 'Error',
+        message: event.message || 'Unknown error',
+        stack: event.error?.stack,
+        source: event.filename ? `${event.filename}:${event.lineno}:${event.colno}` : undefined
+      })
+      setMiniappErrors([...errors].slice(-50)) // Keep last 50 errors
+    }
+
+    // Track unhandled promise rejections
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const errorMessage = event.reason?.message || event.reason?.toString() || 'Unhandled promise rejection'
+      errors.push({
+        timestamp: new Date().toISOString(),
+        type: 'UnhandledRejection',
+        message: errorMessage,
+        stack: event.reason?.stack
+      })
+      setMiniappErrors([...errors].slice(-50))
+    }
+
+    // Intercept console.error
+    const originalConsoleError = console.error
+    console.error = (...args: any[]) => {
+      originalConsoleError.apply(console, args)
+      const errorMessage = args.map(arg =>
+        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+      ).join(' ')
+      errors.push({
+        timestamp: new Date().toISOString(),
+        type: 'ConsoleError',
+        message: errorMessage
+      })
+      setMiniappErrors([...errors].slice(-50))
+    }
+
+    // Track SDK errors by wrapping common SDK actions
+    if (sdk?.actions) {
+      // Track SDK action errors
+      const trackSDKError = (error: any) => {
+        errors.push({
+          timestamp: new Date().toISOString(),
+          type: 'SDKError',
+          message: error?.message || error?.toString() || 'SDK error',
+          stack: error?.stack
+        })
+        setMiniappErrors([...errors].slice(-50))
+      }
+
+      // Wrap common SDK actions to catch errors
+      const wrapSDKAction = (actionName: string, originalAction: any) => {
+        if (typeof originalAction === 'function') {
+          return async (...args: any[]) => {
+            try {
+              return await originalAction(...args)
+            } catch (error: any) {
+              trackSDKError(error)
+              throw error
+            }
+          }
+        }
+        return originalAction
+      }
+
+      // Wrap specific SDK actions that are commonly used
+      const actionsToWrap = ['composeCast', 'addMiniApp', 'swapToken', 'openUrl']
+      actionsToWrap.forEach(actionName => {
+        if (sdk.actions && actionName in sdk.actions) {
+          const original = (sdk.actions as any)[actionName]
+          if (typeof original === 'function') {
+            (sdk.actions as any)[actionName] = wrapSDKAction(actionName, original)
+          }
+        }
+      })
+    }
+
+    window.addEventListener('error', handleError)
+    window.addEventListener('unhandledrejection', handleUnhandledRejection)
+
+    // Load recent errors from API if available
+    const loadErrors = async () => {
+      try {
+        setIsLoadingErrors(true)
+        const response = await fetch('/api/admin/errors')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.errors && Array.isArray(data.errors)) {
+            setMiniappErrors(data.errors)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load errors:', error)
+      } finally {
+        setIsLoadingErrors(false)
+      }
+    }
+
+    loadErrors()
+
+    return () => {
+      window.removeEventListener('error', handleError)
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+      console.error = originalConsoleError
+    }
+  }, [isAdmin])
 
   // Fetch current loserboard entries
   useEffect(() => {
@@ -1148,6 +1279,77 @@ export default function AdminPage() {
               </div>
             )}
           </div>
+        </Card>
+
+        {/* Miniapp Errors Section */}
+        <Card className="p-6 border-2 border-red-500/50">
+          <h2 className="text-2xl font-bold mb-4 text-red-400 uppercase">⚠️ Miniapp Errors</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Recent errors from the miniapp. Check here if the app is having trouble with anything.
+          </p>
+
+          {isLoadingErrors ? (
+            <p className="text-center text-muted-foreground">Loading errors...</p>
+          ) : miniappErrors.length === 0 ? (
+            <div className="bg-green-500/10 border border-green-500/50 p-4 rounded text-center">
+              <p className="text-green-400 font-medium">✅ No errors detected!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex justify-between items-center mb-2">
+                <p className="text-sm text-muted-foreground">
+                  Showing {miniappErrors.length} error{miniappErrors.length !== 1 ? 's' : ''}
+                </p>
+                <Button
+                  onClick={() => setMiniappErrors([])}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  Clear All
+                </Button>
+              </div>
+              <div className="max-h-96 overflow-y-auto space-y-2">
+                {miniappErrors.slice().reverse().map((error, index) => (
+                  <div
+                    key={index}
+                    className="bg-red-500/10 border border-red-500/30 p-3 rounded text-sm"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-red-400 uppercase text-xs">
+                            {error.type}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(error.timestamp).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-red-300 font-mono text-xs break-all">
+                          {error.message}
+                        </p>
+                        {error.source && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Source: {error.source}
+                          </p>
+                        )}
+                        {error.stack && (
+                          <details className="mt-2">
+                            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                              Show stack trace
+                            </summary>
+                            <pre className="mt-2 text-xs text-muted-foreground font-mono bg-black/20 p-2 rounded overflow-x-auto">
+                              {error.stack}
+                            </pre>
+                          </details>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Current Loserboard Entries */}

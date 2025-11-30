@@ -23,8 +23,6 @@ export default function BadTradersLanding() {
   const [isCheckingNotifications, setIsCheckingNotifications] = useState(false)
   const contractAddress = "0x0774409Cda69A47f272907fd5D0d80173167BB07"
 
-  // Track initialization to prevent multiple calls
-  const hasInitialized = useRef(false)
   const providerRef = useRef<any>(null)
   const walletAddressRef = useRef<string | null>(null)
 
@@ -125,11 +123,8 @@ export default function BadTradersLanding() {
     }
   }, [userFid, isInFarcaster])
 
-  // Get user context from Farcaster SDK - only run once on mount
+  // Get user context from Farcaster SDK - run every time app opens
   useEffect(() => {
-    // Prevent multiple initializations
-    if (hasInitialized.current) return
-
     const getUserContext = async () => {
       try {
         const context = await sdk.context
@@ -140,8 +135,8 @@ export default function BadTradersLanding() {
 
           // In Farcaster, skip wallet provider calls to avoid triggering wallet popups
           // Just use the API with FID - it can get the address from Neynar if needed
+          // Run eligibility check every time app opens
           await loadTokenBalance(fid, null)
-          hasInitialized.current = true
         }
       } catch (err) {
         console.log('Farcaster context not available (normal if not in Farcaster client)', err)
@@ -150,7 +145,7 @@ export default function BadTradersLanding() {
 
     getUserContext()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Empty deps - only run once on mount
+  }, []) // Run on mount - but we removed the hasInitialized guard so it always runs
 
   // Listen for wallet account changes ONLY (website users only - NOT in Farcaster)
   // NO automatic connection attempts - only listen for changes when user manually connects
@@ -234,8 +229,8 @@ export default function BadTradersLanding() {
       setIsAddingMiniApp(true)
       const result = await sdk.actions.addMiniApp()
 
-      // SDK returns { added: boolean }
-      if (result?.added) {
+      // SDK returns result object
+      if (result) {
         console.log('✅ Mini app added successfully')
         // Wait for webhook to process (give it time)
         setTimeout(() => {
@@ -316,54 +311,6 @@ export default function BadTradersLanding() {
               }
             </p>
 
-            {/* Notification & Mini App Buttons - Only in Farcaster - AT THE TOP */}
-            {isInFarcaster && (
-              <Card className="p-4 md:p-6 mb-6 border-4 border-primary bg-primary/5 max-w-md mx-auto">
-                <h3 className="text-lg md:text-xl font-bold mb-2 text-primary uppercase text-center">
-                  🔔 Enable Notifications
-                </h3>
-                <p className="text-xs md:text-sm text-muted-foreground mb-4 text-center">
-                  Get notified about contest updates, leaderboard changes, and more. We promise not to abuse them! 🙏
-                </p>
-
-                {/* Notification Status */}
-                {notificationStatus !== null && (
-                  <div className={`mb-4 p-2 rounded border-2 text-center text-xs ${
-                    notificationStatus.hasNotifications
-                      ? 'bg-green-500/20 border-green-500/50 text-green-400'
-                      : 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400'
-                  }`}>
-                    {notificationStatus.hasNotifications ? (
-                      <p>✅ Notifications enabled ({notificationStatus.tokenCount} token{notificationStatus.tokenCount !== 1 ? 's' : ''} stored)</p>
-                    ) : (
-                      <p>⚠️ No notification tokens found. Add the mini app to enable.</p>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleAddMiniApp}
-                    disabled={isAddingMiniApp}
-                    className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 text-sm md:text-base font-bold uppercase border-2 border-primary shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                  >
-                    {isAddingMiniApp ? 'Adding...' : '➕ Add Mini App'}
-                  </Button>
-                  <Button
-                    onClick={checkNotificationStatus}
-                    disabled={isCheckingNotifications || !userFid}
-                    variant="outline"
-                    className="text-xs md:text-sm font-bold uppercase border-2 border-primary"
-                  >
-                    {isCheckingNotifications ? '...' : '🔄 Check'}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                  Adding the mini app enables notifications automatically
-                </p>
-              </Card>
-            )}
-
             {/* My Status Card - shown prominently on main page */}
             <div className="max-w-md mx-auto pt-4 md:pt-8">
               <MyStatus
@@ -433,7 +380,7 @@ export default function BadTradersLanding() {
         </section>
 
         {/* Contract Section */}
-        <section className="min-h-screen flex items-center justify-center px-4 py-20">
+        <section className="min-h-screen flex items-center justify-center px-4 py-20 border-b-4 border-primary">
           <div className="max-w-3xl w-full space-y-6">
             <h2 className="text-5xl md:text-7xl font-bold text-primary uppercase text-center">CONTRACT ADDRESS</h2>
             <Card className="bg-card border-4 border-primary p-8 shadow-[12px_12px_0px_0px_rgba(147,51,234,1)]">
@@ -452,6 +399,58 @@ export default function BadTradersLanding() {
             </Card>
           </div>
         </section>
+
+        {/* Notification & Mini App Section - Only in Farcaster - AT THE BOTTOM */}
+        {isInFarcaster && (
+          <section className="min-h-screen flex items-center justify-center px-4 py-20">
+            <div className="max-w-3xl w-full">
+              <Card className="p-4 md:p-6 border-4 border-primary bg-primary/5 max-w-md mx-auto">
+                <h3 className="text-lg md:text-xl font-bold mb-2 text-primary uppercase text-center">
+                  🔔 Enable Notifications
+                </h3>
+                <p className="text-xs md:text-sm text-muted-foreground mb-4 text-center">
+                  Get notified about contest updates, leaderboard changes, and more. We promise not to abuse them! 🙏
+                </p>
+
+                {/* Notification Status */}
+                {notificationStatus !== null && (
+                  <div className={`mb-4 p-2 rounded border-2 text-center text-xs ${
+                    notificationStatus.hasNotifications
+                      ? 'bg-green-500/20 border-green-500/50 text-green-400'
+                      : 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400'
+                  }`}>
+                    {notificationStatus.hasNotifications ? (
+                      <p>✅ Notifications enabled ({notificationStatus.tokenCount} token{notificationStatus.tokenCount !== 1 ? 's' : ''} stored)</p>
+                    ) : (
+                      <p>⚠️ No notification tokens found. Add the mini app to enable.</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleAddMiniApp}
+                    disabled={isAddingMiniApp}
+                    className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 text-sm md:text-base font-bold uppercase border-2 border-primary shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                  >
+                    {isAddingMiniApp ? 'Adding...' : '➕ Add Mini App'}
+                  </Button>
+                  <Button
+                    onClick={checkNotificationStatus}
+                    disabled={isCheckingNotifications || !userFid}
+                    variant="outline"
+                    className="text-xs md:text-sm font-bold uppercase border-2 border-primary"
+                  >
+                    {isCheckingNotifications ? '...' : '🔄 Check'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Adding the mini app enables notifications automatically
+                </p>
+              </Card>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   )
